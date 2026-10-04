@@ -1,7 +1,7 @@
 // Package secrets backoff helper — RED phase first.
 //
 // Mirrors the JWKS retry-backoff pattern at
-// libs/chora-go-common/auth/identityplatform/identityplatform.go
+// chora-common/auth/identityplatform/identityplatform.go
 // (TestValidator_TransientFailures_ResolvedByRetryBackoff +
 // TestValidator_PersistentFailure_FailsClosedAfterBackoff +
 // TestValidator_StartupBackoff_HonoursContextCancel).

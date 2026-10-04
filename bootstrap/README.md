@@ -1,4 +1,4 @@
-# `libs/chora-go-common/bootstrap`
+# `chora-common/bootstrap`
 
 Service-startup helpers that decouple slow, failure-tolerant init paths
 (OTLP exporter wiring) from latency-sensitive ones (pgx pool init,
@@ -64,7 +64,7 @@ package bootstrap
 // DefaultOTLPInitTimeout is the fallback OTLP-init deadline (15s).
 const DefaultOTLPInitTimeout = 15 * time.Second
 
-// InitFunc matches libs/chora-go-common/otel.Init's signature so
+// InitFunc matches chora-common/otel.Init's signature so
 // callers can pass it directly.
 type InitFunc func(ctx context.Context) (func(context.Context) error, error)
 
@@ -90,7 +90,7 @@ func (h *OTLPHandle) Wait(maxWait time.Duration) OTLPResult
 func (h *OTLPHandle) WaitContext(ctx context.Context) OTLPResult
 ```
 
-And in `libs/chora-go-common/observability`:
+And in `chora-common/observability`:
 
 ```go
 // Thin wrapper that delegates to bootstrap.StartOTLPAsync, preserving
@@ -159,4 +159,4 @@ Coverage gate: 85% (domain). Currently **92.5%**.
 - Tracker #151 — C(a).S1 root-cause analysis
 - CLAUDE.md §1 — OTLP-everywhere policy
 - `.claude/rules/development-execution.md` — TDD enforcement
-- `libs/chora-go-common/otel/otel.go` — underlying Cloud Trace exporter wiring
+- `chora-common/otel/otel.go` — underlying Cloud Trace exporter wiring

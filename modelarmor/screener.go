@@ -382,7 +382,7 @@ func summariseHits(names []string) string {
 
 // requestAttrs builds the OTel attribute slice for the span open.
 // Mirrors the chora.* / modelarmor.* attribute naming used by
-// `libs/chora-go-common/observability`.
+// `chora-common/observability`.
 func (c *Client) requestAttrs(req ScreenRequest) []attribute.KeyValue {
 	return []attribute.KeyValue{
 		attribute.String("chora.tenant_id", req.TenantID),

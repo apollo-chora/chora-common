@@ -349,7 +349,7 @@ func (e errExporter) Error() string { return string(e) }
 
 // TestInit_RegistersW3CTraceContextPropagator regression-guards the
 // 2026-05-17 fix (commit 58b28eb4) that wires propagation.TraceContext +
-// Baggage as the global propagator in chora-go-common/otel.Init.
+// Baggage as the global propagator in chora-common/otel.Init.
 // Without this, every prop.Extract(...) call downstream sees a no-op
 // propagator and silently drops inbound W3C traceparent. Closed the
 // FE-coord E2E-BE-AI-ASSIST-TRACE-EXPORT-PERM blocker.

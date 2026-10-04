@@ -1,7 +1,7 @@
 // Package db bootstrap tests — RED phase first for ATOM-1c.
 //
 // Mirrors the FetchSecretWithBackoff test battery at
-// libs/chora-go-common/secrets/backoff_test.go (commit 4c50a1d5) for the
+// chora-common/secrets/backoff_test.go (commit 4c50a1d5) for the
 // db.Bootstrap Ping step.
 //
 // Rationale: per ATOM-1 §"Cold-start note" + `feedback_d6_resilience_first_class`:

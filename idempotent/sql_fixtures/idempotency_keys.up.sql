@@ -3,7 +3,7 @@
 -- ============================================================================
 --
 -- This file is a TEMPLATE under sql_fixtures/. Each service that uses the
--- chora-go-common/idempotent.PostgresStore copies this DDL into its own
+-- chora-common/idempotent.PostgresStore copies this DDL into its own
 -- migration directory (e.g. services/chora-creation/migrations/000N_add_idempotency_keys.up.sql).
 --
 -- Operational dedup table for at-least-once Pub/Sub subscribers.
@@ -29,7 +29,7 @@ CREATE TABLE IF NOT EXISTS idempotency_keys (
     processed_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     ttl_at       TIMESTAMPTZ NOT NULL,
     -- Optional opaque hash of the upstream operation result. Used by the
-    -- chora-go-common/idempotent package only when a service needs to
+    -- chora-common/idempotent package only when a service needs to
     -- prove the cached outcome of a prior duplicate (rare).
     result_hash  TEXT
 );
@@ -71,7 +71,7 @@ $$;
 
 COMMENT ON FUNCTION cleanup_idempotency_keys(TEXT) IS
 'Operational TTL purge for idempotency_keys table. Called from
-chora-go-common/idempotent.Store.CleanupExpired() via either pg_cron or a
+chora-common/idempotent.Store.CleanupExpired() via either pg_cron or a
 Cloud Run Job on a regular schedule (typical: hourly).';
 
 -- Grant EXECUTE to app roles. The exact role names per database follow

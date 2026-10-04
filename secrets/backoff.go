@@ -3,7 +3,7 @@
 // This file is the §3b half of the E2E-INFRA-COLD-START remediation
 // (Infra option 1, accepted at commit `2292a9d1`). It mirrors the JWKS
 // retry-backoff pattern in
-// libs/chora-go-common/auth/identityplatform/identityplatform.go
+// chora-common/auth/identityplatform/identityplatform.go
 // (refreshJWKSWithBackoff at commit ea45a7a9) for Secret Manager
 // AccessSecretVersion calls during cold start.
 //
@@ -39,7 +39,7 @@ import (
 )
 
 // Retry-backoff tuning — these mirror jwksRetry* in
-// libs/chora-go-common/auth/identityplatform/identityplatform.go so the
+// chora-common/auth/identityplatform/identityplatform.go so the
 // platform has ONE backoff curve to reason about across cold-start
 // resilience surfaces. Total budget: 30s. Worst-case total sleeps:
 // 500ms + 1s + 2s + 4s + 8s = 15.5s, leaving headroom for ~5 RPC

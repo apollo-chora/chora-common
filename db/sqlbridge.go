@@ -2,7 +2,7 @@
 // `idempotent.SQLDB` (or any other database/sql-shaped surface) but want
 // to live on a single pgxpool.Pool.
 //
-// The chora-go-common/idempotent.PostgresStore takes a database/sql-
+// The chora-common/idempotent.PostgresStore takes a database/sql-
 // compatible interface so it stays adapter-agnostic. Services that have
 // already standardised on pgx would otherwise need a second pool just
 // for idempotency, which doubles the connection footprint. This bridge

@@ -2,7 +2,7 @@
 // `cloud.google.com/go/pubsub` client is wired in service-level adapter
 // packages (e.g. services/chora-creation/internal/adapter/pubsub) — this
 // file declares a thin interface those adapters implement so the
-// chora-go-common library stays free of GCP-client dependencies.
+// chora-common library stays free of GCP-client dependencies.
 //
 // Design rationale:
 //

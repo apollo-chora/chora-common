@@ -19,7 +19,7 @@ package:
 
 ```
 chora-ai-kernel orchestrator
-    └─ libs/chora-go-common/modelarmor (this package)
+    └─ chora-common/modelarmor (this package)
             └─ cloud.google.com/go/modelarmor/apiv1 (SDK)
                     └─ Cloud Model Armor v1 gRPC endpoint
 ```
@@ -38,7 +38,7 @@ import (
     "context"
     "log"
 
-    "github.com/5007-Capstone/chora/libs/chora-go-common/modelarmor"
+    "github.com/apollo-chora/chora-common/modelarmor"
 )
 
 func main() {
@@ -161,8 +161,8 @@ Attributes:
 | `modelarmor.filter_hits` | int | count where MatchState == MATCH_FOUND |
 | `modelarmor.filters_evaluated` | int | total filters in response |
 
-Tracer name: `chora-go-common/modelarmor` (matches the convention
-used by `libs/chora-go-common/otel`).
+Tracer name: `chora-common/modelarmor` (matches the convention
+used by `chora-common/otel`).
 
 ## Testing downstream packages
 
@@ -173,7 +173,7 @@ import (
     "testing"
     "strings"
 
-    "github.com/5007-Capstone/chora/libs/chora-go-common/modelarmor"
+    "github.com/apollo-chora/chora-common/modelarmor"
 )
 
 func TestMyOrchestrator_BlocksMaliciousPrompt(t *testing.T) {

@@ -45,8 +45,8 @@
 // `modelarmor.SanitizeModelResponse` with attributes:
 // `chora.tenant_id`, `chora.agent_id`, `chora.gcid`, `modelarmor.template`,
 // `modelarmor.verdict`, `modelarmor.latency_ms`, `modelarmor.filter_hits`.
-// Tracer name: `chora-go-common/modelarmor` (mirrors the otel.Tracer
-// convention used in `libs/chora-go-common/otel`).
+// Tracer name: `chora-common/modelarmor` (mirrors the otel.Tracer
+// convention used in `chora-common/otel`).
 //
 // # No inline config
 //
@@ -229,7 +229,7 @@ type Screener interface {
 
 // TracerName is the OTel tracer name used by every span emitted from
 // this package. Exposed for tests that need to capture spans.
-const TracerName = "chora-go-common/modelarmor"
+const TracerName = "chora-common/modelarmor"
 
 // ErrInvalidScreenRequest is returned when a ScreenRequest fails the
 // minimal-shape validation. Wrapped per call so callers can use

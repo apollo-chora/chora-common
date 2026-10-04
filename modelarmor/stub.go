@@ -1,5 +1,5 @@
 // In-process Screener stub for downstream-package unit tests. NO
-// network. Mirrors the pattern used by `libs/chora-go-common/secrets`
+// network. Mirrors the pattern used by `chora-common/secrets`
 // (`StubClient`) — keeps every test in the repo deterministic.
 
 package modelarmor

@@ -2,7 +2,7 @@
 //
 // This file is the ATOM-1c §"Cold-start note" remediation. It mirrors
 // the JWKS + Secret Manager retry-backoff pattern at
-// libs/chora-go-common/secrets/backoff.go (commit 4c50a1d5) for
+// chora-common/secrets/backoff.go (commit 4c50a1d5) for
 // pgxpool.Pool.Ping calls during cold start.
 //
 // Rationale: per ATOM-1 + `feedback_d6_resilience_first_class`:
@@ -39,7 +39,7 @@ import (
 )
 
 // Retry tuning — these mirror retryAttempts/retryBaseDelay/etc. in
-// libs/chora-go-common/secrets/backoff.go so the platform has ONE
+// chora-common/secrets/backoff.go so the platform has ONE
 // backoff curve to reason about across cold-start resilience surfaces.
 // Total worst-case sleep: 500ms + 1s + 2s + 4s + 8s = 15.5s, leaving
 // headroom for ~5 RPC round-trips inside the 30s budget.

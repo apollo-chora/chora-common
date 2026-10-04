@@ -245,7 +245,7 @@ func InitOTLPAsync(ctx context.Context, serviceName, version string) *bootstrap.
 	})
 }
 
-// defaultExporterFactory mirrors libs/chora-go-common/otel — Cloud Trace
+// defaultExporterFactory mirrors chora-common/otel — Cloud Trace
 // exporter in production, stdouttrace in dev. The endpoint hint is logged
 // but not used (cloudtrace exporter has a fixed endpoint internally;
 // project discovery happens via ADC).
@@ -586,7 +586,7 @@ func SetAISpanAttributes(span trace.Span, a AIAttrs) {
 // -----------------------------------------------------------------------------
 
 // HTTPMiddleware re-exports the tracing.Middleware so services importing only
-// chora-go-common/observability get the full set in one package.
+// chora-common/observability get the full set in one package.
 func HTTPMiddleware() func(next http.Handler) http.Handler {
 	return tracing.Middleware()
 }

@@ -70,7 +70,7 @@ import (
 const DefaultOTLPInitTimeout = 15 * time.Second
 
 // InitFunc is the OTLP-init function the helper drives. Matches
-// libs/chora-go-common/otel.Init's signature so callers can pass it
+// chora-common/otel.Init's signature so callers can pass it
 // directly:
 //
 //	bootstrap.StartOTLPAsync(ctx, bootstrap.OTLPOptions{

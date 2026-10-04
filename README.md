@@ -1,4 +1,4 @@
-# chora-go-common
+# chora-common
 
 Shared Go library consolidating cross-cutting patterns used across the 14 Chora Go services.
 

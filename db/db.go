@@ -105,7 +105,7 @@ type BootstrapOptions struct {
 }
 
 // SecretFetcher is the resolver for Secret Manager secrets. Production
-// uses libs/chora-go-common/secrets.Client; tests inject a stub map.
+// uses chora-common/secrets.Client; tests inject a stub map.
 type SecretFetcher interface {
 	GetSecret(ctx context.Context, name string) (string, error)
 }
@@ -169,7 +169,7 @@ func Bootstrap(ctx context.Context, opts BootstrapOptions) (*pgxpool.Pool, error
 	// Auth Proxy sidecar may not be reachable for the first ~500ms-2s
 	// post-schedule even though Secret Manager has already resolved.
 	// Mirrors the JWKS + Secret Manager backoff pattern at
-	// libs/chora-go-common/secrets/backoff.go (commit 4c50a1d5).
+	// chora-common/secrets/backoff.go (commit 4c50a1d5).
 	if err := pingWithBackoff(ctx, pool); err != nil {
 		pool.Close()
 		return nil, fmt.Errorf("db.Bootstrap: ping after retry: %w", err)
@@ -206,7 +206,7 @@ func resolveDSN(ctx context.Context, opts BootstrapOptions) (string, error) {
 		return "", fmt.Errorf("db.Bootstrap: SecretFetcher required when SecretID is set")
 	}
 	// Use the shared retry-backoff helper (mirrors JWKS pattern at
-	// libs/chora-go-common/auth/identityplatform/identityplatform.go).
+	// chora-common/auth/identityplatform/identityplatform.go).
 	// Per E2E-INFRA-COLD-START §3b: Secret Manager occasionally returns
 	// codes.Unavailable / codes.DeadlineExceeded during cold start on a
 	// fresh node while Workload Identity Federation tokens propagate.

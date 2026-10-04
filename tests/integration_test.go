@@ -1,4 +1,4 @@
-// Package tests contains cross-package integration tests for chora-go-common.
+// Package tests contains cross-package integration tests for chora-common.
 // These exercise the public surface of the library composed end-to-end (env →
 // log → tracing → envelope) without crossing process boundaries.
 package tests

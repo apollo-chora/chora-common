@@ -9,7 +9,7 @@
 -- pending rows to Pub/Sub.
 --
 -- This file is a TEMPLATE under sql_fixtures/. Each service that uses the
--- chora-go-common/outbox.PostgresRecorder copies this DDL into its own
+-- chora-common/outbox.PostgresRecorder copies this DDL into its own
 -- migration directory (e.g. services/chora-creation/migrations/000N_add_outbox.up.sql).
 --
 -- The table lives in the SAME database as the domain it serves

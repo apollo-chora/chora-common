@@ -160,7 +160,7 @@ func (sr *statusRecorder) Unwrap() http.ResponseWriter {
 //     http.response_size_bytes / chora.tenant.id / chora.gcid
 //   - Status: Error on 5xx; client_error attr on 4xx
 //
-// The tracer is named “chora-go-common/tracing“; service.name on the
+// The tracer is named “chora-common/tracing“; service.name on the
 // resource (set by observability.InitOTLP) is what Cloud Trace shows
 // in the service filter.
 //
@@ -171,7 +171,7 @@ func (sr *statusRecorder) Unwrap() http.ResponseWriter {
 //
 // Usage with stdlib mux is identical (signature is std http.Handler).
 func Middleware() func(next http.Handler) http.Handler {
-	tracer := otel.Tracer("chora-go-common/tracing")
+	tracer := otel.Tracer("chora-common/tracing")
 	prop := otel.GetTextMapPropagator()
 	if prop == nil {
 		prop = propagation.TraceContext{}

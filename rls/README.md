@@ -44,7 +44,7 @@ import (
     "github.com/jackc/pgx/v5"
     "github.com/jackc/pgx/v5/pgxpool"
 
-    "github.com/5007-Capstone/chora/libs/chora-go-common/rls"
+    "github.com/apollo-chora/chora-common/rls"
 )
 
 // pgxExecer adapts pgx.Tx to rls.Execer.
@@ -79,7 +79,7 @@ func (r *Repository) GetAtom(ctx context.Context, atomID string) (*Atom, error) 
 Tenant ID flows in via context (set by HTTP middleware that decodes the JWT):
 
 ```go
-import "github.com/5007-Capstone/chora/libs/chora-go-common/tracing"
+import "github.com/apollo-chora/chora-common/tracing"
 
 ctx = tracing.WithTenantID(ctx, claims.TenantID)
 ctx = tracing.WithGCID(ctx, claims.GCID)  // for per-user dual-scoped tables
@@ -134,4 +134,4 @@ This package: 89.5% statement coverage (above 85% domain gate).
 - Rule: `.claude/rules/ddd-enforcement.md` (always-loaded — cross-DB-forbidden)
 - ADR-142: `docs/architecture/adrs/adr-142-per-user-mana-economy.md`
 - ADR-143: per-user Knowledge Graph (dual-scoped RLS)
-- Companion package: `libs/chora-go-common/tracing` (context helpers)
+- Companion package: `chora-common/tracing` (context helpers)

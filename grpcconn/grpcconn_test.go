@@ -59,7 +59,7 @@ func TestServerKeepalive_Invariant(t *testing.T) {
 // NB: the base set is exactly 3 options — WithTransportCredentials(insecure),
 // WithKeepaliveParams(ClientKeepalive()), WithIdleTimeout(0). A stats handler is
 // intentionally NOT baked in (otelgrpc is not a direct dependency of
-// chora-go-common; adding it would dirty go.mod). The relative "+2 == grows by
+// chora-common; adding it would dirty go.mod). The relative "+2 == grows by
 // len(extra)" assertion is the load-bearing append invariant.
 func TestDialOptions_AppendsExtra(t *testing.T) {
 	base := DialOptions()

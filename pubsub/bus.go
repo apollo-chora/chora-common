@@ -67,7 +67,7 @@ func (f TraceparentPropagatorFunc) Inject(ctx context.Context, env *envelope.Env
 }
 
 // OutboxCompatible is a typed alias to compile-check that an in-memory bus
-// satisfies the outbox.Publisher contract from chora-go-common/outbox
+// satisfies the outbox.Publisher contract from chora-common/outbox
 // (Publish(ctx, topic string, env envelope.Envelope, payload []byte) error).
 //
 // The aliased outbox.Publisher signature is reproduced locally to avoid an
