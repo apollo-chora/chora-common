@@ -21,6 +21,7 @@ jobs:
           cache: true
       - name: Normalize Go formatting
         run: |
+          find . -type f -name '*.go' -exec sed -i 's#github.com/5007-Capstone/chora/libs/chora-go-common#github.com/apollo-chora/chora-common#g' {} +
           gofmt -w .
           go mod tidy
           if ! git diff --quiet; then
