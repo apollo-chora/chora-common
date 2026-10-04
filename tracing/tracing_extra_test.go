@@ -14,7 +14,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/5007-Capstone/chora/libs/chora-go-common/tracing"
+	"github.com/apollo-chora/chora-common/tracing"
 )
 
 // TestMiddleware_RecordsBodyBytesAndDefaultStatus drives the

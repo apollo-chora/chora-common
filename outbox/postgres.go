@@ -9,7 +9,7 @@ import (
 	"regexp"
 	"time"
 
-	"github.com/5007-Capstone/chora/libs/chora-go-common/envelope"
+	"github.com/apollo-chora/chora-common/envelope"
 )
 
 // SQLRows is the minimal database/sql Rows surface used by the recorder.

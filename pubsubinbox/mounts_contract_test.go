@@ -31,7 +31,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/5007-Capstone/chora/libs/chora-go-common/pubsubinbox"
+	"github.com/apollo-chora/chora-common/pubsubinbox"
 )
 
 // scannedServices are the services whose mounts are checked by source scan.

@@ -39,8 +39,8 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/5007-Capstone/chora/libs/chora-go-common/envelope"
-	"github.com/5007-Capstone/chora/libs/chora-go-common/tracing"
+	"github.com/apollo-chora/chora-common/envelope"
+	"github.com/apollo-chora/chora-common/tracing"
 )
 
 // Status is the lifecycle of an outbox row.

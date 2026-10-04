@@ -4,7 +4,7 @@ import (
 	"errors"
 	"testing"
 
-	choraerr "github.com/5007-Capstone/chora/libs/chora-go-common/errors"
+	choraerr "github.com/apollo-chora/chora-common/errors"
 )
 
 func TestNew_BuildsTypedError(t *testing.T) {

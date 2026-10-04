@@ -26,7 +26,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/5007-Capstone/chora/libs/chora-go-common/envelope"
+	"github.com/apollo-chora/chora-common/envelope"
 )
 
 // CloudPubSubClient is the minimal subset of cloud.google.com/go/pubsub we

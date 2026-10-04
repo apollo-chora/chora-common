@@ -12,7 +12,7 @@ import (
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	"go.opentelemetry.io/otel/trace"
 
-	choraotel "github.com/5007-Capstone/chora/libs/chora-go-common/otel"
+	choraotel "github.com/apollo-chora/chora-common/otel"
 )
 
 // envKeys is the full set of env vars Init reads. Tests reset all of them

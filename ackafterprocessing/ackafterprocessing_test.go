@@ -32,7 +32,7 @@ import (
 	"sync/atomic"
 	"testing"
 
-	aap "github.com/5007-Capstone/chora/libs/chora-go-common/ackafterprocessing"
+	aap "github.com/apollo-chora/chora-common/ackafterprocessing"
 )
 
 // fakeMessage is a test double for ackafterprocessing.Message.

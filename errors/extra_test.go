@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	choraerrors "github.com/5007-Capstone/chora/libs/chora-go-common/errors"
+	choraerrors "github.com/apollo-chora/chora-common/errors"
 )
 
 func TestError_ErrorIncludesCause(t *testing.T) {

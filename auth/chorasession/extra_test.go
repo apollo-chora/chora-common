@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/5007-Capstone/chora/libs/chora-go-common/auth/chorasession"
+	"github.com/apollo-chora/chora-common/auth/chorasession"
 )
 
 func newValidator(t *testing.T) *chorasession.Validator {

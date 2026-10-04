@@ -17,7 +17,7 @@ import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 
-	"github.com/5007-Capstone/chora/libs/chora-go-common/tracing"
+	"github.com/apollo-chora/chora-common/tracing"
 )
 
 // Logger is the Chora structured logger.

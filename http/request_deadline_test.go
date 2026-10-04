@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	choraserver "github.com/5007-Capstone/chora/libs/chora-go-common/http"
+	choraserver "github.com/apollo-chora/chora-common/http"
 )
 
 // deadlineRecorder is a ResponseWriter that supports connection deadlines,

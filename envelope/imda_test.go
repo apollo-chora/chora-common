@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/5007-Capstone/chora/libs/chora-go-common/envelope"
+	"github.com/apollo-chora/chora-common/envelope"
 )
 
 func TestBuild_IMDAFieldsDefaultEmpty(t *testing.T) {

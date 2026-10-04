@@ -64,8 +64,8 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
 
-	"github.com/5007-Capstone/chora/libs/chora-go-common/bootstrap"
-	"github.com/5007-Capstone/chora/libs/chora-go-common/tracing"
+	"github.com/apollo-chora/chora-common/bootstrap"
+	"github.com/apollo-chora/chora-common/tracing"
 )
 
 // -----------------------------------------------------------------------------

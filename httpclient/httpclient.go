@@ -21,7 +21,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/5007-Capstone/chora/libs/chora-go-common/tracing"
+	"github.com/apollo-chora/chora-common/tracing"
 )
 
 // Client is a Chora-flavoured HTTP client.

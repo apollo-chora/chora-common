@@ -16,8 +16,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/5007-Capstone/chora/libs/chora-go-common/cmek"
-	"github.com/5007-Capstone/chora/libs/chora-go-common/dek"
+	"github.com/apollo-chora/chora-common/cmek"
+	"github.com/apollo-chora/chora-common/dek"
 )
 
 // ─────────────────────────────────────────────────────────────────────────────

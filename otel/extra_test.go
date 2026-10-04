@@ -11,7 +11,7 @@ import (
 
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 
-	choraotel "github.com/5007-Capstone/chora/libs/chora-go-common/otel"
+	choraotel "github.com/apollo-chora/chora-common/otel"
 )
 
 // TestInit_ResourceError_BubblesUp is intentionally NOT present: the otel

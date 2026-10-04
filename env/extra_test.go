@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/5007-Capstone/chora/libs/chora-go-common/env"
+	"github.com/apollo-chora/chora-common/env"
 )
 
 type taggedConfig struct {

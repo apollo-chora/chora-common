@@ -37,7 +37,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/5007-Capstone/chora/libs/chora-go-common/tracing"
+	"github.com/apollo-chora/chora-common/tracing"
 )
 
 // CommandTag is a tx-result placeholder. Real adapters use pgx.CommandTag

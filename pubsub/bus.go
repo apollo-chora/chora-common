@@ -9,7 +9,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/5007-Capstone/chora/libs/chora-go-common/envelope"
+	"github.com/apollo-chora/chora-common/envelope"
 )
 
 // Message is the canonical wire envelope for a delivered subscriber message.

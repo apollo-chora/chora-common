@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/5007-Capstone/chora/libs/chora-go-common/envelope"
-	chpubsub "github.com/5007-Capstone/chora/libs/chora-go-common/pubsub"
+	"github.com/apollo-chora/chora-common/envelope"
+	chpubsub "github.com/apollo-chora/chora-common/pubsub"
 )
 
 func TestInMemoryBus_WithRetryBackoff(t *testing.T) {

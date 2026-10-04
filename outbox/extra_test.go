@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/5007-Capstone/chora/libs/chora-go-common/outbox"
+	"github.com/apollo-chora/chora-common/outbox"
 )
 
 // claimErrRecorder embeds the in-memory recorder and overrides Claim to

@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/5007-Capstone/chora/libs/chora-go-common/idempotent"
+	"github.com/apollo-chora/chora-common/idempotent"
 )
 
 // TestPostgresStore_Process_PropagatesSeenError — a query failure inside

@@ -16,8 +16,8 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/5007-Capstone/chora/libs/chora-go-common/rls"
-	"github.com/5007-Capstone/chora/libs/chora-go-common/tracing"
+	"github.com/apollo-chora/chora-common/rls"
+	"github.com/apollo-chora/chora-common/tracing"
 )
 
 // fakeExecer is a tx-shaped recorder that captures the SET LOCAL statements

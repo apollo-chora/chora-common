@@ -16,7 +16,7 @@ import (
 
 	"go.opentelemetry.io/otel/sdk/trace"
 
-	"github.com/5007-Capstone/chora/libs/chora-go-common/observability"
+	"github.com/apollo-chora/chora-common/observability"
 )
 
 // TestInitOTLP_CloudtracePath_ProjectSet drives defaultExporterFactory's

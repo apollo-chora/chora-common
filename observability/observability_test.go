@@ -27,7 +27,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
 
-	"github.com/5007-Capstone/chora/libs/chora-go-common/observability"
+	"github.com/apollo-chora/chora-common/observability"
 )
 
 // envKeysObs is the set of env vars InitOTLP reads. Used by the Wave B

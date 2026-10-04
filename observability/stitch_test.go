@@ -28,8 +28,8 @@ import (
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	"go.opentelemetry.io/otel/sdk/trace/tracetest"
 
-	"github.com/5007-Capstone/chora/libs/chora-go-common/observability"
-	"github.com/5007-Capstone/chora/libs/chora-go-common/tracing"
+	"github.com/apollo-chora/chora-common/observability"
+	"github.com/apollo-chora/chora-common/tracing"
 )
 
 // ----------------------------------------------------------------------------

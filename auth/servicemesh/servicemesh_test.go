@@ -21,7 +21,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/5007-Capstone/chora/libs/chora-go-common/auth/servicemesh"
+	"github.com/apollo-chora/chora-common/auth/servicemesh"
 )
 
 // ─────────────────────────────────────────────────────────────────────────────

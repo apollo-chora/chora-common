@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/5007-Capstone/chora/libs/chora-go-common/httpclient"
+	"github.com/apollo-chora/chora-common/httpclient"
 )
 
 func TestClient_Get_ContextCancelledDuringRetryBackoff(t *testing.T) {

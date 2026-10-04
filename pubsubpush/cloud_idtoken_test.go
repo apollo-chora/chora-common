@@ -10,7 +10,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/5007-Capstone/chora/libs/chora-go-common/pubsubpush"
+	"github.com/apollo-chora/chora-common/pubsubpush"
 )
 
 func TestNewGoogleValidateToken_Wires(t *testing.T) {

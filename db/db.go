@@ -34,7 +34,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/5007-Capstone/chora/libs/chora-go-common/secrets"
+	"github.com/apollo-chora/chora-common/secrets"
 )
 
 // PoolConfig captures the pgxpool resilience tuning.

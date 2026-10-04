@@ -9,8 +9,8 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/5007-Capstone/chora/libs/chora-go-common/observability"
-	"github.com/5007-Capstone/chora/libs/chora-go-common/tracing"
+	"github.com/apollo-chora/chora-common/observability"
+	"github.com/apollo-chora/chora-common/tracing"
 )
 
 func TestSetAISpanAttributes_AdapterVersionAndGuardrail(t *testing.T) {

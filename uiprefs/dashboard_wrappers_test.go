@@ -3,7 +3,7 @@ package uiprefs_test
 import (
 	"testing"
 
-	"github.com/5007-Capstone/chora/libs/chora-go-common/uiprefs"
+	"github.com/apollo-chora/chora-common/uiprefs"
 )
 
 // TestDashboardWrapperKeys_CanonicalSet pins the canonical vocabulary. It must

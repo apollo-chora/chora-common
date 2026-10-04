@@ -24,7 +24,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/5007-Capstone/chora/libs/chora-go-common/bootstrap"
+	"github.com/apollo-chora/chora-common/bootstrap"
 )
 
 // envKeys is the set of env vars StartOTLPAsync reads. Snapshot+restore

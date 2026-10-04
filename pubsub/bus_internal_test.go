@@ -14,8 +14,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/5007-Capstone/chora/libs/chora-go-common/envelope"
-	"github.com/5007-Capstone/chora/libs/chora-go-common/tracing"
+	"github.com/apollo-chora/chora-common/envelope"
+	"github.com/apollo-chora/chora-common/tracing"
 )
 
 const inMemTestTopic = "chora.creation.atom.created.v1"

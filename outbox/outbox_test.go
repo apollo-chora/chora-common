@@ -15,8 +15,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/5007-Capstone/chora/libs/chora-go-common/envelope"
-	"github.com/5007-Capstone/chora/libs/chora-go-common/outbox"
+	"github.com/apollo-chora/chora-common/envelope"
+	"github.com/apollo-chora/chora-common/outbox"
 )
 
 // TestEvent is a tiny stand-in for a Protobuf event payload. The outbox

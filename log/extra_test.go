@@ -5,7 +5,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/5007-Capstone/chora/libs/chora-go-common/log"
+	"github.com/apollo-chora/chora-common/log"
 )
 
 // TestLogger_WithContextNil_ReturnsSameLogger — a nil context must not

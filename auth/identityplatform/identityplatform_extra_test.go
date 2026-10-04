@@ -18,7 +18,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/5007-Capstone/chora/libs/chora-go-common/auth/identityplatform"
+	"github.com/apollo-chora/chora-common/auth/identityplatform"
 )
 
 // mustValidator builds a validator from a JWKS-serving server, failing

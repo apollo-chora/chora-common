@@ -4,7 +4,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/5007-Capstone/chora/libs/chora-go-common/env"
+	"github.com/apollo-chora/chora-common/env"
 )
 
 func TestMustGet_PanicsWhenMissing(t *testing.T) {

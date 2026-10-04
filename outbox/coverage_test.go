@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/5007-Capstone/chora/libs/chora-go-common/outbox"
+	"github.com/apollo-chora/chora-common/outbox"
 )
 
 // TestRelay_Start runs the daemon loop and verifies it drains + sleeps

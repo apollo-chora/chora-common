@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/5007-Capstone/chora/libs/chora-go-common/idempotent"
+	"github.com/apollo-chora/chora-common/idempotent"
 )
 
 // TestPostgresStore exercises the Postgres adapter against an in-memory

@@ -9,7 +9,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/5007-Capstone/chora/libs/chora-go-common/cmek"
+	"github.com/apollo-chora/chora-common/cmek"
 )
 
 // TestDeleteMasterKey_UnknownTenant_CreatesTombstone exercises the

@@ -12,9 +12,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/5007-Capstone/chora/libs/chora-go-common/envelope"
-	chpubsub "github.com/5007-Capstone/chora/libs/chora-go-common/pubsub"
-	"github.com/5007-Capstone/chora/libs/chora-go-common/tracing"
+	"github.com/apollo-chora/chora-common/envelope"
+	chpubsub "github.com/apollo-chora/chora-common/pubsub"
+	"github.com/apollo-chora/chora-common/tracing"
 )
 
 // fakeRawPublisher captures publish calls so tests can assert wire content.

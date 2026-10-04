@@ -10,7 +10,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/5007-Capstone/chora/libs/chora-go-common/pubsubpush"
+	"github.com/apollo-chora/chora-common/pubsubpush"
 )
 
 // errReader fails on every Read, forcing io.ReadAll's error path.

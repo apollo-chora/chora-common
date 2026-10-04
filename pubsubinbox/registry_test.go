@@ -3,7 +3,7 @@ package pubsubinbox_test
 import (
 	"testing"
 
-	"github.com/5007-Capstone/chora/libs/chora-go-common/pubsubinbox"
+	"github.com/apollo-chora/chora-common/pubsubinbox"
 )
 
 // Every inbox has exactly one owner. A Go map literal cannot hold a duplicate

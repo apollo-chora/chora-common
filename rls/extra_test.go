@@ -8,8 +8,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/5007-Capstone/chora/libs/chora-go-common/rls"
-	"github.com/5007-Capstone/chora/libs/chora-go-common/tracing"
+	"github.com/apollo-chora/chora-common/rls"
+	"github.com/apollo-chora/chora-common/tracing"
 )
 
 const (
