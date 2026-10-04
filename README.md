@@ -16,7 +16,7 @@ Every Chora Go service repeats the same plumbing:
 - Building Pub/Sub event envelopes per CLAUDE.md §6
 - Calling other services with retry + timeout
 
-This module extracts those into a single dependency. Services opt-in by importing `github.com/5007-Capstone/chora/libs/chora-go-common`.
+This module extracts those into a single dependency. Services opt-in by importing `github.com/apollo-chora/chora-common`.
 
 **Library is OPT-IN.** Existing services were not refactored to use it — that work is deferred to a follow-up task.
 
@@ -46,9 +46,9 @@ package main
 import (
     "context"
 
-    chenv "github.com/5007-Capstone/chora/libs/chora-go-common/env"
-    chlog "github.com/5007-Capstone/chora/libs/chora-go-common/log"
-    chotel "github.com/5007-Capstone/chora/libs/chora-go-common/otel"
+    chenv "github.com/apollo-chora/chora-common/env"
+    chlog "github.com/apollo-chora/chora-common/log"
+    chotel "github.com/apollo-chora/chora-common/otel"
 )
 
 type Config struct {
@@ -81,7 +81,7 @@ func main() {
 ```go
 import (
     "github.com/go-chi/chi/v5"
-    "github.com/5007-Capstone/chora/libs/chora-go-common/tracing"
+    "github.com/apollo-chora/chora-common/tracing"
 )
 
 r := chi.NewRouter()
@@ -92,7 +92,7 @@ r.Use(tracing.Middleware())
 
 ```go
 import (
-    "github.com/5007-Capstone/chora/libs/chora-go-common/envelope"
+    "github.com/apollo-chora/chora-common/envelope"
 )
 
 env := envelope.Build(ctx, envelope.BuildOpts{
@@ -111,8 +111,8 @@ if err := envelope.Validate(env); err != nil {
 
 ```go
 import (
-    chenv "github.com/5007-Capstone/chora/libs/chora-go-common/env"
-    "github.com/5007-Capstone/chora/libs/chora-go-common/httpclient"
+    chenv "github.com/apollo-chora/chora-common/env"
+    "github.com/apollo-chora/chora-common/httpclient"
 )
 
 base := chenv.MustGet("CHORA_BFF_GATEWAY_URL") // no inline config
