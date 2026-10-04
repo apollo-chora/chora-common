@@ -1,4 +1,4 @@
-module github.com/5007-Capstone/chora/libs/chora-go-common
+module github.com/apollo-chora/chora-common
 
 go 1.26.1
 
