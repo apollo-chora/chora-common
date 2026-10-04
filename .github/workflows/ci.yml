@@ -7,7 +7,7 @@ on:
     branches: [main]
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   test:
@@ -19,23 +19,13 @@ jobs:
           go-version-file: go.mod
           check-latest: false
           cache: true
-      - name: Normalize Go formatting
-        run: |
-          find . -type f -name '*.go' -exec sed -i 's#github.com/5007-Capstone/chora/libs/chora-go-common#github.com/apollo-chora/chora-common#g' {} +
-          gofmt -w .
-          go mod tidy
-          if ! git diff --quiet; then
-            git config user.name "github-actions[bot]"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git add -- '*.go' go.mod go.sum
-            git commit -m "chore: gofmt Go sources"
-            git push
-          fi
       - name: Check formatting
         run: |
           files="$(gofmt -l .)"
           printf '%s\n' "$files"
           test -z "$files"
+      - name: Check module consistency
+        run: go mod tidy && git diff --exit-code -- go.mod go.sum
       - name: Vet
         run: go vet ./...
       - name: Test
