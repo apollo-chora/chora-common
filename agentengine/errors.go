@@ -37,8 +37,8 @@ var (
 // EngineError wraps a sentinel error with an HTTP status code + body excerpt
 // for structured logging.
 type EngineError struct {
-	Sentinel   error
-	HTTPStatus int
+	Sentinel    error
+	HTTPStatus  int
 	BodyExcerpt string
 }
 

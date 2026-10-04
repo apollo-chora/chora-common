@@ -3,12 +3,12 @@
 // Per E2E-INFRA-COLD-START §B (Infra option 1, accepted at commit
 // 2292a9d1). Strict k8s ready vs live semantic:
 //
-//   /healthz — 200 once the HTTP server is listening (process alive).
-//             Does NOT check pool or outbox. Survives DB outage.
-//   /readyz — 200 ONLY after pgxpool.Ping succeeds AND outbox table
-//             is reachable. 503 otherwise. Gates EndpointSlice
-//             publication so traffic only flows to pods that can
-//             actually persist + emit events.
+//	/healthz — 200 once the HTTP server is listening (process alive).
+//	          Does NOT check pool or outbox. Survives DB outage.
+//	/readyz — 200 ONLY after pgxpool.Ping succeeds AND outbox table
+//	          is reachable. 503 otherwise. Gates EndpointSlice
+//	          publication so traffic only flows to pods that can
+//	          actually persist + emit events.
 //
 // Rationale: cold-start race surfaced at INFRA-LEG3-D — a pod's HTTP
 // server starts listening before pool warm-up finishes; without a

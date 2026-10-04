@@ -67,7 +67,7 @@ const defaultSkew = 60 * time.Second
 // non-empty); a user with no roles in the active tenant is rare but legal
 // (e.g. invited-but-not-activated membership).
 type Claims struct {
-	GCID  string
+	GCID string
 	// TenantID is the user's CURRENT active tenant (one of N memberships
 	// they hold). Carried on the JWT so the validator can stamp it on
 	// downstream mesh headers without a round-trip back to chora-identity.

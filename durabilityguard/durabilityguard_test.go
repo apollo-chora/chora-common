@@ -95,9 +95,9 @@ func TestEvaluate(t *testing.T) {
 	// silently-in-memory siblings are violations — even though the DSN hint is
 	// unset (the real chora-payments/identity case behind a cloudsql-proxy).
 	mixed := []Binding{
-		{Port: "posts", Adapter: inmem()},      // in-memory, not allowlisted
-		{Port: "reactions", Adapter: inmem()},  // in-memory, allowlisted
-		{Port: "courses", Adapter: durable()},  // durable → infers pool present
+		{Port: "posts", Adapter: inmem()},       // in-memory, not allowlisted
+		{Port: "reactions", Adapter: inmem()},   // in-memory, allowlisted
+		{Port: "courses", Adapter: durable()},   // durable → infers pool present
 		{Port: "router", Adapter: &plainFake{}}, // unknown
 	}
 	allow := map[string]bool{"svc:reactions": true}

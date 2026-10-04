@@ -107,5 +107,3 @@ func runMetadataStubInChild(t *testing.T) {
 		t.Errorf("project id = %q, want chora-test-project", id)
 	}
 }
-
-

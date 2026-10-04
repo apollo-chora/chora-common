@@ -95,15 +95,15 @@ type stubPGXRows struct {
 	closed  bool
 }
 
-func (r *stubPGXRows) Close()                                        { r.closed = true }
-func (r *stubPGXRows) Err() error                                    { return r.rowsErr }
-func (r *stubPGXRows) CommandTag() pgconn.CommandTag                 { return pgconn.CommandTag{} }
-func (r *stubPGXRows) FieldDescriptions() []pgconn.FieldDescription  { return nil }
-func (r *stubPGXRows) Next() bool                                    { return r.next }
-func (r *stubPGXRows) Scan(dest ...any) error                        { return r.scanErr }
-func (r *stubPGXRows) Values() ([]any, error)                        { return nil, nil }
-func (r *stubPGXRows) RawValues() [][]byte                           { return nil }
-func (r *stubPGXRows) Conn() *pgx.Conn                               { return nil }
+func (r *stubPGXRows) Close()                                       { r.closed = true }
+func (r *stubPGXRows) Err() error                                   { return r.rowsErr }
+func (r *stubPGXRows) CommandTag() pgconn.CommandTag                { return pgconn.CommandTag{} }
+func (r *stubPGXRows) FieldDescriptions() []pgconn.FieldDescription { return nil }
+func (r *stubPGXRows) Next() bool                                   { return r.next }
+func (r *stubPGXRows) Scan(dest ...any) error                       { return r.scanErr }
+func (r *stubPGXRows) Values() ([]any, error)                       { return nil, nil }
+func (r *stubPGXRows) RawValues() [][]byte                          { return nil }
+func (r *stubPGXRows) Conn() *pgx.Conn                              { return nil }
 
 func TestPgxRowsBridge_ProxiesToUnderlyingRows(t *testing.T) {
 	t.Parallel()
@@ -180,4 +180,3 @@ func TestPgxSQLBridge_QueryRowContextClosedPoolFails(t *testing.T) {
 		t.Fatal("expected error on closed pool")
 	}
 }
-

@@ -40,12 +40,12 @@ func TestMustGet_PanicsWhenEmpty(t *testing.T) {
 
 func TestGetOrDefault(t *testing.T) {
 	cases := []struct {
-		name    string
-		key     string
-		setVal  string
-		setEnv  bool
+		name     string
+		key      string
+		setVal   string
+		setEnv   bool
 		fallback string
-		want    string
+		want     string
 	}{
 		{"missing returns default", "CHORA_TEST_MISS_1", "", false, "fallback", "fallback"},
 		{"empty returns default", "CHORA_TEST_EMPTY_1", "", true, "fallback", "fallback"},

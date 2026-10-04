@@ -35,9 +35,9 @@ func regionalEndpoint(location string) string {
 // dialling Cloud Model Armor (the SDK's `*modelarmor.Client` has no
 // usable interface — its methods take `gax.CallOption ...` directly).
 type sdkInvoker struct {
-	closer        func() error
-	userPromptFn  func(context.Context, *modelarmorpb.SanitizeUserPromptRequest) (*modelarmorpb.SanitizeUserPromptResponse, error)
-	modelRespFn   func(context.Context, *modelarmorpb.SanitizeModelResponseRequest) (*modelarmorpb.SanitizeModelResponseResponse, error)
+	closer       func() error
+	userPromptFn func(context.Context, *modelarmorpb.SanitizeUserPromptRequest) (*modelarmorpb.SanitizeUserPromptResponse, error)
+	modelRespFn  func(context.Context, *modelarmorpb.SanitizeModelResponseRequest) (*modelarmorpb.SanitizeModelResponseResponse, error)
 }
 
 // newRealInvoker bridges *modelarmor.Client into the seam.

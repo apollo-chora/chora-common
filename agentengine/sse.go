@@ -14,11 +14,11 @@ import (
 // recorded fixtures are newline-delimited JSON without the canonical
 // `data: ` SSE prefix — ParseSSE handles both.
 type sseEnvelope struct {
-	Author       string `json:"author"`
-	Content      struct {
+	Author  string `json:"author"`
+	Content struct {
 		Parts []struct {
-			Text         string                 `json:"text,omitempty"`
-			FunctionCall *FunctionCall          `json:"function_call,omitempty"`
+			Text         string        `json:"text,omitempty"`
+			FunctionCall *FunctionCall `json:"function_call,omitempty"`
 		} `json:"parts"`
 		Role string `json:"role"`
 	} `json:"content"`

@@ -1,8 +1,9 @@
 // stitch_test.go — 3-hop OTLP trace-stitch validation.
 //
 // Per task brief done-criteria:
-//   "OTLP 3-hop stitch test green (BFF → Identity → Tenancy stub all in
-//   one Cloud Trace tree; if Tenancy adapter not ready, use mock)"
+//
+//	"OTLP 3-hop stitch test green (BFF → Identity → Tenancy stub all in
+//	one Cloud Trace tree; if Tenancy adapter not ready, use mock)"
 //
 // This is the unit-level equivalent of the live integration test in
 // tests/integration/traceparent_propagation_test.go — uses an in-memory
@@ -67,8 +68,8 @@ func TestThreeHopStitch_TraceparentPreserved(t *testing.T) {
 
 	// ---- Tenancy mock (innermost) -------------------------------------------
 	var (
-		mu                   sync.Mutex
-		tenancyTraceparent   string
+		mu                 sync.Mutex
+		tenancyTraceparent string
 	)
 	tenancyHandler := observability.HTTPMiddleware()(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		mu.Lock()

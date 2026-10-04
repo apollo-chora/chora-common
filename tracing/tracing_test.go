@@ -366,7 +366,7 @@ func TestMiddleware_ContextTraceparentContinuesInboundTraceWithOwnSpan(t *testin
 	}
 	// ... but THIS service's own exported span id, never the upstream's.
 	if parts[2] == "b7ad6b7169203331" {
-		t.Errorf("captured span_id equals the UPSTREAM span; envelopes must carry\n"+
+		t.Errorf("captured span_id equals the UPSTREAM span; envelopes must carry\n" +
 			"this service's own exported span so consumers nest under it")
 	}
 	if parts[2] != sc.SpanID().String() {

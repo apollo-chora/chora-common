@@ -11,7 +11,7 @@ import "testing"
 
 func TestRegionalEndpoint(t *testing.T) {
 	cases := map[string]string{
-		"us-central1":    "modelarmor.us-central1.rep.googleapis.com:443",
+		"us-central1":     "modelarmor.us-central1.rep.googleapis.com:443",
 		"asia-southeast1": "modelarmor.asia-southeast1.rep.googleapis.com:443",
 	}
 	for loc, want := range cases {

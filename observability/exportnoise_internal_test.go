@@ -101,8 +101,8 @@ type spanRecorder struct{ out *[]sdktrace.ReadOnlySpan }
 
 func (r spanRecorder) OnStart(context.Context, sdktrace.ReadWriteSpan) {}
 func (r spanRecorder) OnEnd(s sdktrace.ReadOnlySpan)                   { *r.out = append(*r.out, s) }
-func (r spanRecorder) Shutdown(context.Context) error                 { return nil }
-func (r spanRecorder) ForceFlush(context.Context) error               { return nil }
+func (r spanRecorder) Shutdown(context.Context) error                  { return nil }
+func (r spanRecorder) ForceFlush(context.Context) error                { return nil }
 
 func recordSpans(t *testing.T, names []string) []sdktrace.ReadOnlySpan {
 	t.Helper()

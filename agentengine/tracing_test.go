@@ -16,10 +16,10 @@ func TestSpanAttrs_AllFiveD6P4MandatoryAttributes(t *testing.T) {
 	})
 
 	want := map[attribute.Key]attribute.Value{
-		"chora.tenant_id":           attribute.StringValue("tenant-abc"),
-		"chora.crew_kind":           attribute.StringValue("familiar_companion"),
-		"chora.engine_resource":     attribute.StringValue("projects/381315455325/locations/us-central1/reasoningEngines/6115726116004036608"),
-		"gen_ai.request.model":      attribute.StringValue("gemini-2.5-flash-lite"),
+		"chora.tenant_id":            attribute.StringValue("tenant-abc"),
+		"chora.crew_kind":            attribute.StringValue("familiar_companion"),
+		"chora.engine_resource":      attribute.StringValue("projects/381315455325/locations/us-central1/reasoningEngines/6115726116004036608"),
+		"gen_ai.request.model":       attribute.StringValue("gemini-2.5-flash-lite"),
 		"gen_ai.usage.output_tokens": attribute.IntValue(1303),
 	}
 

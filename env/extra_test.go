@@ -11,7 +11,7 @@ import (
 type taggedConfig struct {
 	DBURL    string `env:"TEST_CHORA_DB_URL,required"`
 	Port     string `env:"TEST_CHORA_PORT,default=8080"`
-	internal string                // untagged + unexported — must be skipped
+	internal string // untagged + unexported — must be skipped
 }
 
 func TestLoadStruct_SkipsUnexportedFields(t *testing.T) {

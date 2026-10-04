@@ -101,9 +101,9 @@ func TestCreateSession_PostsCorrectJSONAndReturnsSessionID(t *testing.T) {
 		EngineResource: fixtureEngine,
 		UserID:         "gcid-x",
 		State: map[string]any{
-			"tenant_id":  "tenant-y",
-			"user_gcid":  "gcid-x",
-			"mana_tier":  "premium",
+			"tenant_id":   "tenant-y",
+			"user_gcid":   "gcid-x",
+			"mana_tier":   "premium",
 			"familiar_id": "newton",
 		},
 	})

@@ -26,11 +26,11 @@ import (
 
 func TestNewDEK_PopulatesFields(t *testing.T) {
 	d, err := dek.New(dek.NewArgs{
-		GCID:                "01975a73-9a8b-7e2c-bd11-aa0001000001",
-		TenantID:            "tenant-A",
-		WrappedKey:          []byte("wrapped-cipher-bytes"),
-		KMSKeyResourceName:  "projects/chora-489812/locations/asia-southeast1/keyRings/chora-keys/cryptoKeys/cmek-tenant-A",
-		WrapAlgorithm:       dek.WrapAlgoCMEKEnvelope,
+		GCID:               "01975a73-9a8b-7e2c-bd11-aa0001000001",
+		TenantID:           "tenant-A",
+		WrappedKey:         []byte("wrapped-cipher-bytes"),
+		KMSKeyResourceName: "projects/chora-489812/locations/asia-southeast1/keyRings/chora-keys/cryptoKeys/cmek-tenant-A",
+		WrapAlgorithm:      dek.WrapAlgoCMEKEnvelope,
 	})
 	if err != nil {
 		t.Fatalf("New: %v", err)

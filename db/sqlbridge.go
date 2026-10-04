@@ -84,10 +84,10 @@ type pgxRowsBridge struct {
 	r pgx.Rows
 }
 
-func (r *pgxRowsBridge) Next() bool                  { return r.r.Next() }
+func (r *pgxRowsBridge) Next() bool                     { return r.r.Next() }
 func (r *pgxRowsBridge) Scan(dest ...interface{}) error { return r.r.Scan(dest...) }
-func (r *pgxRowsBridge) Close() error                  { r.r.Close(); return nil }
-func (r *pgxRowsBridge) Err() error                    { return r.r.Err() }
+func (r *pgxRowsBridge) Close() error                   { r.r.Close(); return nil }
+func (r *pgxRowsBridge) Err() error                     { return r.r.Err() }
 
 // pgxRowSingle wraps a pgx.Row.
 type pgxRowSingle struct {

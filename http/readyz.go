@@ -4,16 +4,16 @@
 //
 // Liveness vs readiness — the load-bearing distinction:
 //
-//   /healthz — "is the process alive?". 200 once the HTTP server is
-//             listening. Does NOT check pool, outbox, or any
-//             downstream dependency. A failing /healthz is the signal
-//             for kubelet to kill the pod. Survives DB outage.
+//	/healthz — "is the process alive?". 200 once the HTTP server is
+//	          listening. Does NOT check pool, outbox, or any
+//	          downstream dependency. A failing /healthz is the signal
+//	          for kubelet to kill the pod. Survives DB outage.
 //
-//   /readyz  — "can the pod actually serve traffic?". 200 ONLY when
-//             pgxpool.Ping succeeds AND the outbox table is reachable
-//             (when an outbox is wired). 503 otherwise. Gates k8s
-//             EndpointSlice publication so GCLB / kube-proxy only
-//             route to pods that can persist + emit events.
+//	/readyz  — "can the pod actually serve traffic?". 200 ONLY when
+//	          pgxpool.Ping succeeds AND the outbox table is reachable
+//	          (when an outbox is wired). 503 otherwise. Gates k8s
+//	          EndpointSlice publication so GCLB / kube-proxy only
+//	          route to pods that can persist + emit events.
 //
 // Cold-start race surfaced at INFRA-LEG3-D — a pod's HTTP server
 // starts listening before pool warm-up finishes; without a real

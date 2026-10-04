@@ -23,8 +23,11 @@ type deadlineCapableRecorder struct {
 	writeDeadline time.Time
 }
 
-func (d *deadlineCapableRecorder) SetReadDeadline(t time.Time) error  { d.readDeadline = t; return nil }
-func (d *deadlineCapableRecorder) SetWriteDeadline(t time.Time) error { d.writeDeadline = t; return nil }
+func (d *deadlineCapableRecorder) SetReadDeadline(t time.Time) error { d.readDeadline = t; return nil }
+func (d *deadlineCapableRecorder) SetWriteDeadline(t time.Time) error {
+	d.writeDeadline = t
+	return nil
+}
 
 // TestStatusRecorder_UnwrapExposesDeadlineControl guards the wiring the
 // AI-Assist upload deadline fix depends on: the tracing middleware wraps the

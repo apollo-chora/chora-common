@@ -135,10 +135,10 @@ type Validator struct {
 	loaded bool
 
 	// refresh-flood guard state
-	refreshMu        sync.Mutex
-	lastRefreshTry   time.Time
-	refreshCooldown  time.Duration
-	inFlightRefresh  bool
+	refreshMu       sync.Mutex
+	lastRefreshTry  time.Time
+	refreshCooldown time.Duration
+	inFlightRefresh bool
 }
 
 // NewValidator constructs a Validator and eagerly fetches the JWKS at startup
@@ -251,17 +251,17 @@ func (v *Validator) refreshJWKSWithBackoff(ctx context.Context) error {
 // Platform's custom-claims feature; standard claims (sub, email, iss, aud,
 // exp, iat) come from the OIDC envelope.
 type Claims struct {
-	GCID        string                 `json:"gcid"`
-	TenantID    string                 `json:"tenant_id"`
-	KYCStatus   string                 `json:"kyc_status"`
-	RoleSummary map[string]any         `json:"role_summary"`
-	Email       string                 `json:"email"`
-	Sub         string                 `json:"sub"`
-	Issuer      string                 `json:"iss"`
-	Audience    string                 `json:"-"` // single string normalised
-	IssuedAt    time.Time              `json:"-"`
-	ExpiresAt   time.Time              `json:"-"`
-	Raw         map[string]any         `json:"-"` // full claim set for callers
+	GCID        string         `json:"gcid"`
+	TenantID    string         `json:"tenant_id"`
+	KYCStatus   string         `json:"kyc_status"`
+	RoleSummary map[string]any `json:"role_summary"`
+	Email       string         `json:"email"`
+	Sub         string         `json:"sub"`
+	Issuer      string         `json:"iss"`
+	Audience    string         `json:"-"` // single string normalised
+	IssuedAt    time.Time      `json:"-"`
+	ExpiresAt   time.Time      `json:"-"`
+	Raw         map[string]any `json:"-"` // full claim set for callers
 }
 
 // rawClaims is the on-wire representation; we coerce to Claims in ValidateJWT.

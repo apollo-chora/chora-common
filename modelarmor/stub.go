@@ -38,11 +38,11 @@ import (
 type StubScreener struct {
 	mu sync.RWMutex
 
-	userPromptFn  func(ScreenRequest) (ScreenResult, error)
-	modelRespFn   func(ScreenRequest) (ScreenResult, error)
-	closeFn       func() error
-	calls         []StubCall
-	captureCalls  bool
+	userPromptFn func(ScreenRequest) (ScreenResult, error)
+	modelRespFn  func(ScreenRequest) (ScreenResult, error)
+	closeFn      func() error
+	calls        []StubCall
+	captureCalls bool
 }
 
 // StubCall records a single invocation when CaptureCalls is enabled.

@@ -51,14 +51,14 @@ func TestValidateTopicName_OK(t *testing.T) {
 func TestValidateTopicName_Reject(t *testing.T) {
 	t.Parallel()
 	cases := map[string]string{
-		"":                              "empty",
-		"creation.atom.published.v1":    "missing chora prefix",
-		"chora.creation.atom":           "missing version",
-		"chora.creation.atom.v1":        "missing event_type",
-		"chora.creation.atom.x.v":       "version not numeric",
-		"chora.creation.atom.x.v0":      "version starts at 1",
-		"chora.creation.atom.PUBLISHED.v1": "uppercase",
-		"chora.unknown.atom.published.v1": "unknown domain",
+		"":                                  "empty",
+		"creation.atom.published.v1":        "missing chora prefix",
+		"chora.creation.atom":               "missing version",
+		"chora.creation.atom.v1":            "missing event_type",
+		"chora.creation.atom.x.v":           "version not numeric",
+		"chora.creation.atom.x.v0":          "version starts at 1",
+		"chora.creation.atom.PUBLISHED.v1":  "uppercase",
+		"chora.unknown.atom.published.v1":   "unknown domain",
 		"chora.creation.atom.published.v01": "leading zero in version",
 	}
 	for input, why := range cases {

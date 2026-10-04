@@ -117,9 +117,9 @@ func TestInit_FactorySwap_ProvesCloudTracePathReached(t *testing.T) {
 	t.Setenv("GOOGLE_CLOUD_PROJECT", "chora-489812")
 
 	var (
-		called          bool
-		gotEndpoint     string
-		gotServiceName  string
+		called         bool
+		gotEndpoint    string
+		gotServiceName string
 	)
 	restore := choraotel.SwapExporterFactoryForTest(
 		func(ctx context.Context, endpoint, name, version string) (sdktrace.SpanExporter, error) {

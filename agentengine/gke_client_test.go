@@ -114,7 +114,7 @@ func TestNormaliseGKEBase(t *testing.T) {
 	cases := map[string]string{
 		"gke://chora-familiar.ai-kernel.svc.cluster.local:8080": "http://chora-familiar.ai-kernel.svc.cluster.local:8080",
 		"chora-familiar.ai-kernel.svc.cluster.local:8080":       "http://chora-familiar.ai-kernel.svc.cluster.local:8080",
-		"http://x:8080/":                                        "http://x:8080",
+		"http://x:8080/": "http://x:8080",
 	}
 	for in, want := range cases {
 		got, err := normaliseGKEBase(in)

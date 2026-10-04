@@ -95,4 +95,3 @@ func TestBuild_HonoursInjectedClock(t *testing.T) {
 		t.Errorf("timestamps = (%v, %v), want both %v", e.OccurredAt, e.PublishedAt, fixed)
 	}
 }
-

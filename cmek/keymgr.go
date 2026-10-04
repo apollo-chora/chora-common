@@ -27,11 +27,11 @@
 //     material — only the OpKind + tenantID + timestamp + result.
 //
 // HARD INVARIANTS:
-//   1. KeyManager NEVER returns the master key bytes — only resource names +
-//      wrapped/unwrapped payloads.
-//   2. WrapDEK / UnwrapDEK / DeleteMasterKey + CreateMasterKey are the ONLY
-//      mutating operations.
-//   3. CryptoOp audit slice is append-only (`AuditOps()` returns a copy).
+//  1. KeyManager NEVER returns the master key bytes — only resource names +
+//     wrapped/unwrapped payloads.
+//  2. WrapDEK / UnwrapDEK / DeleteMasterKey + CreateMasterKey are the ONLY
+//     mutating operations.
+//  3. CryptoOp audit slice is append-only (`AuditOps()` returns a copy).
 package cmek
 
 import (
@@ -209,10 +209,10 @@ func (k OpKind) String() string {
 // CryptoOp is one auditable KMS operation. NEVER contains key material — only
 // metadata sufficient for IMDA D1 evidence + observability.
 type CryptoOp struct {
-	Kind     OpKind
-	TenantID string
+	Kind       OpKind
+	TenantID   string
 	OccurredAt time.Time
-	Success  bool
+	Success    bool
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

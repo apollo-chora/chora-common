@@ -15,7 +15,7 @@ import (
 // claimErrRecorder embeds the in-memory recorder and overrides Claim to
 // fail, exercising the relay's Claim-error propagation.
 type claimErrRecorder struct {
-	rec     *recorder
+	rec      *recorder
 	claimErr error
 }
 

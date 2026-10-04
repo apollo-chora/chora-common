@@ -77,28 +77,28 @@ import (
 
 const (
 	// gen_ai.* — OpenInference / OpenLLMetry (vendor-neutral GenAI conventions).
-	AttrGenAISystem            = "gen_ai.system"
-	AttrGenAIRequestModel      = "gen_ai.request.model"
-	AttrGenAIResponseModel     = "gen_ai.response.model"
-	AttrGenAIRequestTemp       = "gen_ai.request.temperature"
-	AttrGenAIRequestMaxTokens  = "gen_ai.request.max_tokens"
-	AttrGenAIPromptTokens      = "gen_ai.usage.prompt_tokens"
-	AttrGenAICompletionTokens  = "gen_ai.usage.completion_tokens"
-	AttrGenAICachedTokens      = "gen_ai.usage.cached_tokens"
-	AttrGenAIPrompt            = "gen_ai.prompt"
-	AttrGenAICompletion        = "gen_ai.completion"
-	AttrGenAIToolCalls         = "gen_ai.tool.calls"
+	AttrGenAISystem           = "gen_ai.system"
+	AttrGenAIRequestModel     = "gen_ai.request.model"
+	AttrGenAIResponseModel    = "gen_ai.response.model"
+	AttrGenAIRequestTemp      = "gen_ai.request.temperature"
+	AttrGenAIRequestMaxTokens = "gen_ai.request.max_tokens"
+	AttrGenAIPromptTokens     = "gen_ai.usage.prompt_tokens"
+	AttrGenAICompletionTokens = "gen_ai.usage.completion_tokens"
+	AttrGenAICachedTokens     = "gen_ai.usage.cached_tokens"
+	AttrGenAIPrompt           = "gen_ai.prompt"
+	AttrGenAICompletion       = "gen_ai.completion"
+	AttrGenAIToolCalls        = "gen_ai.tool.calls"
 
 	// chora.* — Chora-specific extensions (tenant + agent + IMDA).
-	AttrChoraAgentID         = "chora.agent.id"
-	AttrChoraAgentRunID      = "chora.agent.run_id"
-	AttrChoraTenantID        = "chora.tenant.id"
-	AttrChoraGCID            = "chora.gcid"
-	AttrChoraAdapterVersion  = "chora.adapter.version"
+	AttrChoraAgentID          = "chora.agent.id"
+	AttrChoraAgentRunID       = "chora.agent.run_id"
+	AttrChoraTenantID         = "chora.tenant.id"
+	AttrChoraGCID             = "chora.gcid"
+	AttrChoraAdapterVersion   = "chora.adapter.version"
 	AttrChoraGuardrailOutcome = "chora.guardrail.outcome"
-	AttrChoraIsEvalRun       = "chora.is_eval_run"
-	AttrChoraImdaDimension   = "chora.imda.dimension"
-	AttrChoraImdaLifecycle   = "chora.imda.lifecycle_stage"
+	AttrChoraIsEvalRun        = "chora.is_eval_run"
+	AttrChoraImdaDimension    = "chora.imda.dimension"
+	AttrChoraImdaLifecycle    = "chora.imda.lifecycle_stage"
 )
 
 // -----------------------------------------------------------------------------
@@ -486,17 +486,17 @@ func StartSpan(ctx context.Context, name string, opts ...trace.SpanStartOption) 
 // AIAttrs is the call-site shape for OpenInference + chora.* attributes on an
 // AI span. Zero-valued fields are skipped (i.e., only set non-empty values).
 type AIAttrs struct {
-	System            string  // e.g. "vertex_ai_gemini" / "self_hosted_gemma" / "byoa_openai"
-	RequestModel      string
-	ResponseModel     string
+	System             string // e.g. "vertex_ai_gemini" / "self_hosted_gemma" / "byoa_openai"
+	RequestModel       string
+	ResponseModel      string
 	RequestTemperature float64
 	RequestMaxTokens   int64
-	PromptTokens      int64
-	CompletionTokens  int64
-	CachedTokens      int64
-	Prompt            string // redacted body or hash; never raw PII
-	Completion        string // redacted body or hash
-	ToolCalls         string // tool call array (function name + arg keys)
+	PromptTokens       int64
+	CompletionTokens   int64
+	CachedTokens       int64
+	Prompt             string // redacted body or hash; never raw PII
+	Completion         string // redacted body or hash
+	ToolCalls          string // tool call array (function name + arg keys)
 
 	AgentID          string
 	AgentRunID       string

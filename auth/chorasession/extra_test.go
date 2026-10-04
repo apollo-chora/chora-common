@@ -89,4 +89,3 @@ func TestValidate_RejectsMissingExp(t *testing.T) {
 		t.Fatalf("err = %v, want ErrMissingClaim", err)
 	}
 }
-

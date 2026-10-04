@@ -37,10 +37,10 @@ import (
 
 // fakeMessage is a test double for ackafterprocessing.Message.
 type fakeMessage struct {
-	attrs   map[string]string
-	data    []byte
-	ackN    int32
-	nackN   int32
+	attrs map[string]string
+	data  []byte
+	ackN  int32
+	nackN int32
 }
 
 func (f *fakeMessage) Attributes() map[string]string { return f.attrs }

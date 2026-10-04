@@ -16,10 +16,10 @@ import (
 
 func TestVerdictString_AllBranches(t *testing.T) {
 	cases := map[Verdict]string{
-		Durable:      "DURABLE",
-		InMemory:     "IN_MEMORY",
-		Unknown:      "UNKNOWN",
-		Verdict(99):  "UNKNOWN",
+		Durable:     "DURABLE",
+		InMemory:    "IN_MEMORY",
+		Unknown:     "UNKNOWN",
+		Verdict(99): "UNKNOWN",
 	}
 	for v, want := range cases {
 		if got := v.String(); got != want {

@@ -1,9 +1,9 @@
 // Package servicemesh_test holds the RED-phase TDD specs for the
 // Cloud-Service-Mesh-bound metadata propagation library. Per S3.6 spec:
 //
-//   chora-bff-gateway → backend services: gRPC metadata `chora-gcid`,
-//   `chora-tenant-id`, `chora-role-summary` (JSON). Backend services trust
-//   mTLS-bound metadata (Cloud Service Mesh asserts caller identity).
+//	chora-bff-gateway → backend services: gRPC metadata `chora-gcid`,
+//	`chora-tenant-id`, `chora-role-summary` (JSON). Backend services trust
+//	mTLS-bound metadata (Cloud Service Mesh asserts caller identity).
 //
 // chora-bff-gateway = upstream — calls Marshal() to attach claims as gRPC
 // outbound metadata.

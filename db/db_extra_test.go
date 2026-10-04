@@ -74,7 +74,7 @@ func TestResolveDSN_SecretFetchSuccess(t *testing.T) {
 	t.Parallel()
 	f := &strayFetcher{value: "postgres://s:3@h:1/db"}
 	dsn, err := resolveDSN(context.Background(), BootstrapOptions{
-		SecretID:     "chora-x",
+		SecretID:      "chora-x",
 		SecretFetcher: f,
 	})
 	if err != nil {
@@ -108,7 +108,7 @@ func TestResolveDSN_SecretFetchEmptyValueRejected(t *testing.T) {
 	t.Parallel()
 	f := &strayFetcher{} // returns "" with nil error
 	_, err := resolveDSN(context.Background(), BootstrapOptions{
-		SecretID:     "chora-x",
+		SecretID:      "chora-x",
 		SecretFetcher: f,
 	})
 	if err == nil {
@@ -133,9 +133,9 @@ func TestBootstrap_ValidDSN_FailsClosedWhenPingUnreachable(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 400*time.Millisecond)
 	defer cancel()
 	pool, err := Bootstrap(ctx, BootstrapOptions{
-		DSN:            "postgres://u:p@127.0.0.1:59999/db?sslmode=disable",
-		AppName:        "chora-test@v0.0.0",
-		RuntimeParams:  map[string]string{"lock_timeout": "3s"},
+		DSN:             "postgres://u:p@127.0.0.1:59999/db?sslmode=disable",
+		AppName:         "chora-test@v0.0.0",
+		RuntimeParams:   map[string]string{"lock_timeout": "3s"},
 		RewriteFromPort: 0, // no rewrite — exercises the plain path
 	})
 	if err == nil {
@@ -275,4 +275,3 @@ func TestPingWithBackoff_CancelledBeforeFirstAttempt(t *testing.T) {
 		t.Errorf("error should report zero attempts, got %q", err.Error())
 	}
 }
-

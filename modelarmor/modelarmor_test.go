@@ -282,8 +282,8 @@ func TestFlattenFilterResults_MaliciousURIAndVirusScan(t *testing.T) {
 		FilterNameVirusScan: {
 			FilterResult: &modelarmorpb.FilterResult_VirusScanFilterResult{
 				VirusScanFilterResult: &modelarmorpb.VirusScanFilterResult{
-					MatchState:    modelarmorpb.FilterMatchState_NO_MATCH_FOUND,
-					VirusDetails:  nil,
+					MatchState:   modelarmorpb.FilterMatchState_NO_MATCH_FOUND,
+					VirusDetails: nil,
 				},
 			},
 		},

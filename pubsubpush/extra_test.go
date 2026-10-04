@@ -70,4 +70,3 @@ func TestNewHandler_DefaultsNilVerifier(t *testing.T) {
 		t.Error("dispatch not invoked")
 	}
 }
-
