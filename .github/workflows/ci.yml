@@ -21,7 +21,9 @@ jobs:
           cache: true
       - name: Check formatting
         run: |
-          test -z "$(gofmt -l .)"
+          files="$(gofmt -l .)"
+          printf '%s\n' "$files"
+          test -z "$files"
       - name: Vet
         run: go vet ./...
       - name: Test
