@@ -104,7 +104,7 @@ func TestInMemoryBusHandlerErrorGoesToDLQ(t *testing.T) {
 
 	select {
 	case m := <-dlq:
-		if m.Subject != "chora.observability.thing.happened.v1.dlq" {
+		if m.Subject != "_dlq.chora.observability.thing.happened.v1" {
 			t.Errorf("dlq subject = %q", m.Subject)
 		}
 	case <-time.After(time.Second):

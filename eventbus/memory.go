@@ -259,7 +259,7 @@ func (b *InMemoryBus) deliverDLQ(parent context.Context, subject string, env env
 		go func() {
 			defer b.deliveryWG.Done()
 			msg := Message{
-				Subject:         subject + ".dlq",
+				Subject:         DLQSubject(subject),
 				Envelope:        env,
 				Payload:         payload,
 				DeliveryAttempt: 0,

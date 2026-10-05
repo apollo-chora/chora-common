@@ -74,3 +74,16 @@ type Bus interface {
 	Subscriber
 	Close() error
 }
+
+// DLQSubject returns the dead-letter subject for an event subject. The single
+// convention is the transport prefix `_dlq.` on the original subject
+// (`_dlq.chora.observability.token_usage.recorded.v1`), which the root Compose
+// CHORA_DLQ stream captures via `_dlq.>`. Callers that leave
+// ConsumerConfig.DLQSubject empty get this subject; callers that set it
+// explicitly should use this helper so every service dead-letters identically.
+//
+// The result is an infrastructure address, not a domain event name, so it is
+// deliberately NOT run through ValidateSubject.
+func DLQSubject(subject string) string {
+	return "_dlq." + subject
+}

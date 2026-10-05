@@ -115,6 +115,17 @@ func (b *JetStreamBus) Subscribe(ctx context.Context, cfg ConsumerConfig, handle
 	if ackWait <= 0 {
 		ackWait = 30 * time.Second
 	}
+	// JetStream rejects a backoff schedule longer than MaxDeliver, and a
+	// non-positive duration would make NakWithDelay redeliver immediately.
+	// Validate here rather than surfacing a broker configuration error later.
+	if len(cfg.Backoff) > maxDeliver {
+		return fmt.Errorf("eventbus: consumer %q: %d backoff entries exceeds MaxDeliver %d", cfg.Name, len(cfg.Backoff), maxDeliver)
+	}
+	for i, d := range cfg.Backoff {
+		if d <= 0 {
+			return fmt.Errorf("eventbus: consumer %q: backoff[%d] must be positive, got %s", cfg.Name, i, d)
+		}
+	}
 	cons, err := b.js.CreateOrUpdateConsumer(ctx, b.stream, jetstream.ConsumerConfig{
 		Durable:       cfg.Name,
 		FilterSubject: cfg.Subject,
@@ -154,16 +165,18 @@ func (b *JetStreamBus) consumeLoop(ctx context.Context, cons jetstream.Consumer,
 }
 
 func (b *JetStreamBus) handleMsg(ctx context.Context, msg jetstream.Msg, cfg ConsumerConfig, handler Handler) {
-	env, err := envelopeFromHeaders(msg.Headers())
-	if err != nil {
-		// The envelope cannot be interpreted, so the payload cannot be handled
-		// safely. Preserve it on the DLQ rather than dropping it silently.
-		b.deadLetter(ctx, msg, cfg, err)
-		return
-	}
 	var delivered uint64
 	if md, err := msg.Metadata(); err == nil {
 		delivered = md.NumDelivered
+	}
+	env, err := envelopeFromHeaders(msg.Headers())
+	if err != nil {
+		// The envelope cannot be interpreted, so the payload cannot be handled
+		// safely. The stored headers are immutable, so retrying can never make
+		// this message valid — preserve it on the DLQ rather than dropping it or
+		// burning the delivery budget on a deterministic failure.
+		b.deadLetter(ctx, msg, cfg, delivered, err)
+		return
 	}
 	m := Message{
 		Subject:         msg.Subject(),
@@ -172,38 +185,73 @@ func (b *JetStreamBus) handleMsg(ctx context.Context, msg jetstream.Msg, cfg Con
 		DeliveryAttempt: delivered,
 	}
 	if err := handler(ctx, m); err == nil {
-		_ = msg.Ack()
+		ackMsg(cfg, msg)
 		return
 	}
 	// Handler failed. If the redelivery ceiling is reached, route to the DLQ;
-	// otherwise nak for redelivery.
+	// otherwise schedule a redelivery honouring the configured backoff.
 	maxDeliver := cfg.MaxDeliver
 	if maxDeliver <= 0 {
 		maxDeliver = 5
 	}
 	if delivered >= uint64(maxDeliver) {
-		b.deadLetter(ctx, msg, cfg, nil)
+		b.deadLetter(ctx, msg, cfg, delivered, nil)
 		return
 	}
-	_ = msg.Nak()
+	// Nak() alone redelivers immediately and ignores the consumer BackOff, so
+	// the configured schedule would be inert on the normal failure path.
+	if d := retryDelay(cfg.Backoff, delivered); d > 0 {
+		if err := msg.NakWithDelay(d); err != nil {
+			log.Printf("eventbus: NakWithDelay failed (consumer=%s subject=%s): %v", cfg.Name, msg.Subject(), err)
+		}
+		return
+	}
+	if err := msg.Nak(); err != nil {
+		log.Printf("eventbus: Nak failed (consumer=%s subject=%s): %v", cfg.Name, msg.Subject(), err)
+	}
+}
+
+// retryDelay picks the backoff interval for the given (1-based) delivery
+// attempt. It clamps to the last entry once the schedule is exhausted, and
+// returns 0 when no schedule is configured (caller then uses an immediate Nak).
+func retryDelay(backoff []time.Duration, delivered uint64) time.Duration {
+	if len(backoff) == 0 {
+		return 0
+	}
+	idx := int(delivered) - 1
+	if idx < 0 {
+		idx = 0
+	}
+	if idx >= len(backoff) {
+		idx = len(backoff) - 1
+	}
+	return backoff[idx]
+}
+
+// ackMsg acknowledges a message, logging (rather than discarding) a settlement
+// failure so a broker-side ack problem is visible in the service log.
+func ackMsg(cfg ConsumerConfig, msg jetstream.Msg) {
+	if err := msg.Ack(); err != nil {
+		log.Printf("eventbus: ack failed (consumer=%s subject=%s): %v", cfg.Name, msg.Subject(), err)
+	}
 }
 
 // deadLetter republishes a message to the consumer's DLQ subject. The original
 // is acknowledged only once the DLQ write has succeeded. If the write cannot
 // be completed the original is left unsettled — never acknowledged — so the
 // event is not lost; the failure is logged for an operator.
-func (b *JetStreamBus) deadLetter(ctx context.Context, msg jetstream.Msg, cfg ConsumerConfig, cause error) {
+func (b *JetStreamBus) deadLetter(ctx context.Context, msg jetstream.Msg, cfg ConsumerConfig, delivered uint64, cause error) {
 	dlq := cfg.DLQSubject
 	if dlq == "" {
-		dlq = "_dlq." + cfg.Subject
+		dlq = DLQSubject(cfg.Subject)
 	}
-	republish := &nats.Msg{Subject: dlq, Data: msg.Data(), Header: dlqHeaders(msg.Headers(), cfg, cause)}
+	republish := &nats.Msg{Subject: dlq, Data: msg.Data(), Header: dlqHeaders(msg.Headers(), cfg, delivered, cause)}
 
 	schedule := []time.Duration{time.Second, 2 * time.Second, 5 * time.Second, 10 * time.Second}
 	var lastErr error
 	for attempt := 0; attempt <= len(schedule); attempt++ {
 		if _, err := b.js.PublishMsg(ctx, republish); err == nil {
-			_ = msg.Ack()
+			ackMsg(cfg, msg)
 			return
 		} else {
 			lastErr = err
@@ -225,7 +273,7 @@ func (b *JetStreamBus) deadLetter(ctx context.Context, msg jetstream.Msg, cfg Co
 // not reuse the source message's broker id, or JetStream would suppress it as a
 // duplicate of the very message it is dead-lettering; it gets a derived id
 // instead so repeated DLQ attempts for one event still deduplicate.
-func dlqHeaders(src nats.Header, cfg ConsumerConfig, cause error) nats.Header {
+func dlqHeaders(src nats.Header, cfg ConsumerConfig, delivered uint64, cause error) nats.Header {
 	hdr := nats.Header{}
 	for k, vs := range src {
 		for _, v := range vs {
@@ -240,6 +288,10 @@ func dlqHeaders(src nats.Header, cfg ConsumerConfig, cause error) nats.Header {
 	if cfg.Name != "" {
 		hdr.Set("Chora-Dlq-Consumer", cfg.Name)
 	}
+	if delivered > 0 {
+		hdr.Set("Chora-Dlq-Delivery-Count", strconv.FormatUint(delivered, 10))
+	}
+	hdr.Set("Chora-Dlq-Failed-At", time.Now().UTC().Format(time.RFC3339Nano))
 	if cause != nil {
 		hdr.Set("Chora-Dlq-Reason", cause.Error())
 	}
@@ -301,9 +353,11 @@ func envelopeFromHeaders(h nats.Header) (envelope.Envelope, error) {
 		ImdaLifecycleStage: get("Chora-Imda-Lifecycle-Stage"),
 	}
 	if v := get("Chora-Schema-Version"); v != "" {
-		if n, err := strconv.ParseInt(v, 10, 32); err == nil {
-			env.SchemaVersion = int32(n)
+		n, err := strconv.ParseInt(v, 10, 32)
+		if err != nil {
+			return envelope.Envelope{}, fmt.Errorf("eventbus: parse schema_version %q: %w", v, err)
 		}
+		env.SchemaVersion = int32(n)
 	}
 	if v := get("Chora-Occurred-At"); v != "" {
 		t, err := time.Parse(time.RFC3339Nano, v)

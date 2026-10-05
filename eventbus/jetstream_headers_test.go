@@ -84,7 +84,7 @@ func TestDLQHeadersDeriveMessageID(t *testing.T) {
 	src.Set(jetstream.MsgIDHeader, fullEnvelope().EventID)
 	cfg := ConsumerConfig{Name: "obs.token_usage", Subject: "chora.observability.token_usage.recorded.v1"}
 
-	h := dlqHeaders(src, cfg, errors.New("boom"))
+	h := dlqHeaders(src, cfg, 5, errors.New("boom"))
 
 	if got := h.Get(jetstream.MsgIDHeader); got != fullEnvelope().EventID+".dlq" {
 		t.Errorf("Nats-Msg-Id = %q, want %q", got, fullEnvelope().EventID+".dlq")
@@ -98,6 +98,12 @@ func TestDLQHeadersDeriveMessageID(t *testing.T) {
 	if got := h.Get("Chora-Dlq-Reason"); got != "boom" {
 		t.Errorf("Chora-Dlq-Reason = %q, want %q", got, "boom")
 	}
+	if got := h.Get("Chora-Dlq-Delivery-Count"); got != "5" {
+		t.Errorf("Chora-Dlq-Delivery-Count = %q, want %q", got, "5")
+	}
+	if _, err := time.Parse(time.RFC3339Nano, h.Get("Chora-Dlq-Failed-At")); err != nil {
+		t.Errorf("Chora-Dlq-Failed-At = %q is not RFC3339Nano: %v", h.Get("Chora-Dlq-Failed-At"), err)
+	}
 	// The payload envelope headers must survive onto the DLQ copy.
 	if got := h.Get("Chora-Event-Id"); got != fullEnvelope().EventID {
 		t.Errorf("Chora-Event-Id = %q, want %q", got, fullEnvelope().EventID)
@@ -109,7 +115,7 @@ func TestDLQHeadersWithoutEventIDDropMessageID(t *testing.T) {
 	src.Set(jetstream.MsgIDHeader, "stale-id")
 	cfg := ConsumerConfig{Subject: "chora.closure.requested.v1"}
 
-	h := dlqHeaders(src, cfg, nil)
+	h := dlqHeaders(src, cfg, 0, nil)
 
 	if got := h.Get(jetstream.MsgIDHeader); got != "" {
 		t.Errorf("Nats-Msg-Id = %q, want empty (no event id to derive from)", got)
@@ -119,6 +125,40 @@ func TestDLQHeadersWithoutEventIDDropMessageID(t *testing.T) {
 	}
 	if got := h.Get("Chora-Dlq-Reason"); got != "" {
 		t.Errorf("Chora-Dlq-Reason = %q, want empty when cause is nil", got)
+	}
+	if got := h.Get("Chora-Dlq-Delivery-Count"); got != "" {
+		t.Errorf("Chora-Dlq-Delivery-Count = %q, want empty when delivered is 0", got)
+	}
+}
+
+func TestDLQSubjectConvention(t *testing.T) {
+	if got, want := DLQSubject("chora.observability.token_usage.recorded.v1"), "_dlq.chora.observability.token_usage.recorded.v1"; got != want {
+		t.Errorf("DLQSubject = %q, want %q", got, want)
+	}
+}
+
+// TestRetryDelay covers the 1-based delivery indexing: the first failure must
+// use backoff[0], and an exhausted schedule must clamp to its last entry.
+func TestRetryDelay(t *testing.T) {
+	backoff := []time.Duration{time.Second, 5 * time.Second, 15 * time.Second}
+	cases := []struct {
+		delivered uint64
+		want      time.Duration
+	}{
+		{0, time.Second},
+		{1, time.Second},
+		{2, 5 * time.Second},
+		{3, 15 * time.Second},
+		{4, 15 * time.Second},
+		{99, 15 * time.Second},
+	}
+	for _, tc := range cases {
+		if got := retryDelay(backoff, tc.delivered); got != tc.want {
+			t.Errorf("retryDelay(delivered=%d) = %s, want %s", tc.delivered, got, tc.want)
+		}
+	}
+	if got := retryDelay(nil, 1); got != 0 {
+		t.Errorf("retryDelay(nil) = %s, want 0 (immediate Nak)", got)
 	}
 }
 
