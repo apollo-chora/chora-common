@@ -27,10 +27,10 @@ func testEnvelope() envelope.Envelope {
 
 func TestValidateSubject(t *testing.T) {
 	cases := map[string]bool{
-		"chora.observability.token_usage.recorded.v1": true,
-		"chora.tenancy.tenant.created.v1":             true,
-		"chora.closure.saga.started.v2":               true,
-		"chora.unknown.thing.happened.v1":             false,
+		"chora.observability.token_usage.recorded.v1":    true,
+		"chora.tenancy.tenant.created.v1":                true,
+		"chora.closure.saga.started.v2":                  true,
+		"chora.unknown.thing.happened.v1":                false,
 		"notchora.observability.token_usage.recorded.v1": false,
 		"chora.observability.token_usage.recorded.v0":    false,
 		"chora.observability.Token_Usage.recorded.v1":    false,
