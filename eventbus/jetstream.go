@@ -184,7 +184,8 @@ func (b *JetStreamBus) handleMsg(ctx context.Context, msg jetstream.Msg, cfg Con
 		Payload:         msg.Data(),
 		DeliveryAttempt: delivered,
 	}
-	if err := handler(ctx, m); err == nil {
+	handlerErr := handler(ctx, m)
+	if handlerErr == nil {
 		ackMsg(cfg, msg)
 		return
 	}
@@ -195,7 +196,7 @@ func (b *JetStreamBus) handleMsg(ctx context.Context, msg jetstream.Msg, cfg Con
 		maxDeliver = 5
 	}
 	if delivered >= uint64(maxDeliver) {
-		b.deadLetter(ctx, msg, cfg, delivered, nil)
+		b.deadLetter(ctx, msg, cfg, delivered, handlerErr)
 		return
 	}
 	// Nak() alone redelivers immediately and ignores the consumer BackOff, so
@@ -282,7 +283,15 @@ func dlqHeaders(src nats.Header, cfg ConsumerConfig, delivered uint64, cause err
 	}
 	hdr.Del(jetstream.MsgIDHeader)
 	if id := src.Get("Chora-Event-Id"); id != "" {
-		hdr.Set(jetstream.MsgIDHeader, id+".dlq")
+		// The identity of a dead-letter record is (source event, failed
+		// consumer), not the source event alone: the same event failing on two
+		// consumers must yield two quarantine records, while a settlement retry
+		// of one (event, consumer) pair must deduplicate.
+		dlqID := id + ".dlq"
+		if cfg.Name != "" {
+			dlqID += "." + cfg.Name
+		}
+		hdr.Set(jetstream.MsgIDHeader, dlqID)
 	}
 	hdr.Set("Chora-Dlq-Source-Subject", cfg.Subject)
 	if cfg.Name != "" {

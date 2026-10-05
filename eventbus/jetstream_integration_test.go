@@ -2,6 +2,7 @@ package eventbus
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"testing"
 	"time"
@@ -18,6 +19,11 @@ import (
 // DLQ loss on publish failure, backoff ignored) all lived in the JetStream
 // implementation and were invisible to the in-memory-only tests. They run
 // against an embedded nats-server so they need no Docker or external broker.
+//
+// The fixture reproduces the production topology: a CHORA_EVENTS stream
+// (subjects chora.>) and a separate CHORA_DLQ stream (subjects _dlq.>). Testing
+// against a single combined stream would hide exactly the DLQ-routing defects
+// this suite exists to catch.
 
 func runEmbeddedNATS(t *testing.T) (string, func()) {
 	t.Helper()
@@ -29,9 +35,9 @@ func runEmbeddedNATS(t *testing.T) (string, func()) {
 	return s.ClientURL(), s.Shutdown
 }
 
-// newTestBus creates a unique stream that captures both domain events and DLQ
-// subjects, and returns a bus bound to it.
-func newTestBus(t *testing.T, url string) (*JetStreamBus, jetstream.JetStream, string) {
+// newTestBus creates the two production-shaped streams and returns a bus bound
+// to the events stream, plus the JetStream handle and both stream names.
+func newTestBus(t *testing.T, url string) (*JetStreamBus, jetstream.JetStream, string, string) {
 	t.Helper()
 	nc, err := nats.Connect(url)
 	if err != nil {
@@ -42,24 +48,35 @@ func newTestBus(t *testing.T, url string) (*JetStreamBus, jetstream.JetStream, s
 	if err != nil {
 		t.Fatalf("jetstream: %v", err)
 	}
-	name := fmt.Sprintf("CHORA_EVENTS_TEST_%d", time.Now().UnixNano())
+	suffix := fmt.Sprintf("%d", time.Now().UnixNano())
+	events := "CHORA_EVENTS_TEST_" + suffix
+	dlq := "CHORA_DLQ_TEST_" + suffix
 	if _, err := js.CreateStream(context.Background(), jetstream.StreamConfig{
-		Name:       name,
-		Subjects:   []string{"chora.>", "_dlq.>"},
+		Name:       events,
+		Subjects:   []string{"chora.>"},
 		Storage:    jetstream.FileStorage,
 		Duplicates: 10 * time.Minute,
 	}); err != nil {
-		t.Fatalf("create stream: %v", err)
+		t.Fatalf("create events stream: %v", err)
+	}
+	if _, err := js.CreateStream(context.Background(), jetstream.StreamConfig{
+		Name:       dlq,
+		Subjects:   []string{"_dlq.>"},
+		Storage:    jetstream.FileStorage,
+		Duplicates: 10 * time.Minute,
+	}); err != nil {
+		t.Fatalf("create dlq stream: %v", err)
 	}
 	t.Cleanup(func() {
-		_ = js.DeleteStream(context.Background(), name)
+		_ = js.DeleteStream(context.Background(), events)
+		_ = js.DeleteStream(context.Background(), dlq)
 	})
-	bus, err := NewJetStream(JetStreamConfig{URL: url, StreamName: name})
+	bus, err := NewJetStream(JetStreamConfig{URL: url, StreamName: events})
 	if err != nil {
 		t.Fatalf("NewJetStream: %v", err)
 	}
 	t.Cleanup(func() { _ = bus.Close() })
-	return bus, js, name
+	return bus, js, events, dlq
 }
 
 func waitFor(t *testing.T, d time.Duration, what string, cond func() bool) {
@@ -72,6 +89,32 @@ func waitFor(t *testing.T, d time.Duration, what string, cond func() bool) {
 		time.Sleep(20 * time.Millisecond)
 	}
 	t.Fatalf("timed out after %s waiting for %s", d, what)
+}
+
+func streamMsgs(t *testing.T, js jetstream.JetStream, stream string) uint64 {
+	t.Helper()
+	s, err := js.Stream(context.Background(), stream)
+	if err != nil {
+		return 0
+	}
+	info, err := s.Info(context.Background())
+	if err != nil {
+		return 0
+	}
+	return info.State.Msgs
+}
+
+func dlqProbe(t *testing.T, js jetstream.JetStream, dlqStream, durable string) jetstream.Consumer {
+	t.Helper()
+	cons, err := js.CreateOrUpdateConsumer(context.Background(), dlqStream, jetstream.ConsumerConfig{
+		Durable:       durable,
+		AckPolicy:     jetstream.AckExplicitPolicy,
+		FilterSubject: "_dlq.>",
+	})
+	if err != nil {
+		t.Fatalf("dlq consumer: %v", err)
+	}
+	return cons
 }
 
 // nextWithTimeout reads one message from a JetStream consumer iterator or fails
@@ -107,7 +150,7 @@ func nextWithTimeout(t *testing.T, cons jetstream.Consumer, d time.Duration) jet
 func TestJetStreamIntegration_EnvelopeRoundTrip(t *testing.T) {
 	url, shutdown := runEmbeddedNATS(t)
 	defer shutdown()
-	bus, _, _ := newTestBus(t, url)
+	bus, _, _, _ := newTestBus(t, url)
 
 	const subject = "chora.observability.token_usage.recorded.v1"
 	want := fullEnvelope()
@@ -152,17 +195,15 @@ func TestJetStreamIntegration_EnvelopeRoundTrip(t *testing.T) {
 func TestJetStreamIntegration_MaxDeliverRoutesToDLQ(t *testing.T) {
 	url, shutdown := runEmbeddedNATS(t)
 	defer shutdown()
-	bus, js, stream := newTestBus(t, url)
+	bus, js, events, dlq := newTestBus(t, url)
 
 	const subject = "chora.observability.thing.happened.v1"
-	attempts := make(chan struct{}, 32)
 	if err := bus.Subscribe(context.Background(), ConsumerConfig{
 		Name:       "always-fails",
 		Subject:    subject,
 		MaxDeliver: 2,
 		Backoff:    []time.Duration{50 * time.Millisecond, 50 * time.Millisecond},
 	}, func(_ context.Context, _ Message) error {
-		attempts <- struct{}{}
 		return fmt.Errorf("boom")
 	}); err != nil {
 		t.Fatalf("subscribe: %v", err)
@@ -171,15 +212,7 @@ func TestJetStreamIntegration_MaxDeliverRoutesToDLQ(t *testing.T) {
 		t.Fatalf("publish: %v", err)
 	}
 
-	dlqCons, err := js.CreateOrUpdateConsumer(context.Background(), stream, jetstream.ConsumerConfig{
-		Durable:       "dlq-probe",
-		AckPolicy:     jetstream.AckExplicitPolicy,
-		FilterSubject: "_dlq.>",
-	})
-	if err != nil {
-		t.Fatalf("dlq consumer: %v", err)
-	}
-	msg := nextWithTimeout(t, dlqCons, 15*time.Second)
+	msg := nextWithTimeout(t, dlqProbe(t, js, dlq, "dlq-probe"), 15*time.Second)
 	if got := msg.Headers().Get("Chora-Dlq-Source-Subject"); got != subject {
 		t.Errorf("Chora-Dlq-Source-Subject = %q, want %q", got, subject)
 	}
@@ -189,24 +222,23 @@ func TestJetStreamIntegration_MaxDeliverRoutesToDLQ(t *testing.T) {
 	if got := msg.Headers().Get("Chora-Dlq-Delivery-Count"); got != "2" {
 		t.Errorf("Chora-Dlq-Delivery-Count = %q, want 2", got)
 	}
-	// Exactly one DLQ record, not one per failed delivery.
-	waitFor(t, 2*time.Second, "exactly one DLQ record", func() bool {
-		info, err := js.Stream(context.Background(), stream)
-		if err != nil {
-			return false
-		}
-		st, err := info.Info(context.Background())
-		if err != nil {
-			return false
-		}
-		return st.State.Msgs == 2 // 1 original + 1 DLQ
+	// The handler's own error must be preserved for the operator.
+	if got := msg.Headers().Get("Chora-Dlq-Reason"); got != "boom" {
+		t.Errorf("Chora-Dlq-Reason = %q, want %q (handler error not preserved)", got, "boom")
+	}
+	// Exactly one DLQ record, and the original was settled in the events stream.
+	waitFor(t, 5*time.Second, "exactly one DLQ record", func() bool {
+		return streamMsgs(t, js, dlq) == 1
 	})
+	if n := streamMsgs(t, js, events); n != 1 {
+		t.Errorf("events stream has %d messages, want 1 (original)", n)
+	}
 }
 
 func TestJetStreamIntegration_UnparseableEnvelopeGoesToDLQ(t *testing.T) {
 	url, shutdown := runEmbeddedNATS(t)
 	defer shutdown()
-	bus, js, stream := newTestBus(t, url)
+	bus, js, _, dlq := newTestBus(t, url)
 
 	const subject = "chora.observability.thing.happened.v1"
 	handled := make(chan struct{}, 1)
@@ -237,15 +269,7 @@ func TestJetStreamIntegration_UnparseableEnvelopeGoesToDLQ(t *testing.T) {
 		t.Fatalf("flush: %v", err)
 	}
 
-	dlqCons, err := js.CreateOrUpdateConsumer(context.Background(), stream, jetstream.ConsumerConfig{
-		Durable:       "dlq-probe-poison",
-		AckPolicy:     jetstream.AckExplicitPolicy,
-		FilterSubject: "_dlq.>",
-	})
-	if err != nil {
-		t.Fatalf("dlq consumer: %v", err)
-	}
-	msg := nextWithTimeout(t, dlqCons, 15*time.Second)
+	msg := nextWithTimeout(t, dlqProbe(t, js, dlq, "dlq-probe-poison"), 15*time.Second)
 	if got := msg.Headers().Get("Chora-Dlq-Source-Subject"); got != subject {
 		t.Errorf("Chora-Dlq-Source-Subject = %q, want %q", got, subject)
 	}
@@ -259,10 +283,49 @@ func TestJetStreamIntegration_UnparseableEnvelopeGoesToDLQ(t *testing.T) {
 	}
 }
 
+// TestJetStreamIntegration_DLQIdentityIsPerConsumer proves the dead-letter
+// record identity is (source event, failed consumer): a settlement retry of one
+// pair deduplicates, while the same event failing on a different consumer is
+// preserved as a second record.
+func TestJetStreamIntegration_DLQIdentityIsPerConsumer(t *testing.T) {
+	url, shutdown := runEmbeddedNATS(t)
+	defer shutdown()
+	_, js, _, dlq := newTestBus(t, url)
+
+	const subject = "chora.observability.thing.happened.v1"
+	env := fullEnvelope()
+	src := envelopeHeaders(env)
+	src.Set(jetstream.MsgIDHeader, env.EventID)
+
+	nc, err := nats.Connect(url)
+	if err != nil {
+		t.Fatalf("connect: %v", err)
+	}
+	defer nc.Close()
+	publish := func(consumer string) {
+		cfg := ConsumerConfig{Name: consumer, Subject: subject}
+		m := &nats.Msg{Subject: DLQSubject(subject), Data: []byte("poison"), Header: dlqHeaders(src, cfg, 3, errors.New("boom"))}
+		if err := nc.PublishMsg(m); err != nil {
+			t.Fatalf("publish dlq: %v", err)
+		}
+		if err := nc.Flush(); err != nil {
+			t.Fatalf("flush: %v", err)
+		}
+	}
+
+	publish("consumer-a")
+	publish("consumer-a") // settlement retry of the same (event, consumer)
+	publish("consumer-b") // same event, different consumer
+
+	waitFor(t, 5*time.Second, "two DLQ records (one per consumer)", func() bool {
+		return streamMsgs(t, js, dlq) == 2
+	})
+}
+
 func TestJetStreamIntegration_DeduplicatesSameEventID(t *testing.T) {
 	url, shutdown := runEmbeddedNATS(t)
 	defer shutdown()
-	bus, js, stream := newTestBus(t, url)
+	bus, js, events, _ := newTestBus(t, url)
 
 	const subject = "chora.observability.thing.happened.v1"
 	env := fullEnvelope()
@@ -272,15 +335,7 @@ func TestJetStreamIntegration_DeduplicatesSameEventID(t *testing.T) {
 		}
 	}
 	waitFor(t, 5*time.Second, "duplicate suppression to leave one message", func() bool {
-		info, err := js.Stream(context.Background(), stream)
-		if err != nil {
-			return false
-		}
-		st, err := info.Info(context.Background())
-		if err != nil {
-			return false
-		}
-		return st.State.Msgs == 1
+		return streamMsgs(t, js, events) == 1
 	})
 }
 
@@ -291,7 +346,7 @@ func TestJetStreamIntegration_DeduplicatesSameEventID(t *testing.T) {
 func TestJetStreamIntegration_SameIdempotencyKeyDifferentEventIDs(t *testing.T) {
 	url, shutdown := runEmbeddedNATS(t)
 	defer shutdown()
-	bus, js, stream := newTestBus(t, url)
+	bus, js, events, _ := newTestBus(t, url)
 
 	const subject = "chora.observability.thing.happened.v1"
 	first := fullEnvelope()
@@ -305,14 +360,6 @@ func TestJetStreamIntegration_SameIdempotencyKeyDifferentEventIDs(t *testing.T) 
 		}
 	}
 	waitFor(t, 5*time.Second, "both distinct events stored", func() bool {
-		info, err := js.Stream(context.Background(), stream)
-		if err != nil {
-			return false
-		}
-		st, err := info.Info(context.Background())
-		if err != nil {
-			return false
-		}
-		return st.State.Msgs == 2
+		return streamMsgs(t, js, events) == 2
 	})
 }

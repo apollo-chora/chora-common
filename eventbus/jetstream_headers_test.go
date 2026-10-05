@@ -86,8 +86,8 @@ func TestDLQHeadersDeriveMessageID(t *testing.T) {
 
 	h := dlqHeaders(src, cfg, 5, errors.New("boom"))
 
-	if got := h.Get(jetstream.MsgIDHeader); got != fullEnvelope().EventID+".dlq" {
-		t.Errorf("Nats-Msg-Id = %q, want %q", got, fullEnvelope().EventID+".dlq")
+	if got := h.Get(jetstream.MsgIDHeader); got != fullEnvelope().EventID+".dlq."+cfg.Name {
+		t.Errorf("Nats-Msg-Id = %q, want %q", got, fullEnvelope().EventID+".dlq."+cfg.Name)
 	}
 	if got := h.Get("Chora-Dlq-Source-Subject"); got != cfg.Subject {
 		t.Errorf("Chora-Dlq-Source-Subject = %q, want %q", got, cfg.Subject)
