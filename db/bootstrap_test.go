@@ -10,9 +10,9 @@
 //	    will CrashLoopBackOff):
 //	  db.Bootstrap: ping: context deadline exceeded
 //
-// A fresh node has not yet warmed the Cloud SQL Auth Proxy sidecar +
+// A fresh node has not yet warmed the Postgres sidecar +
 // IP routing tables. The first Ping on the boot path can context-deadline
-// despite Secret Manager succeeding — and pods historically restarted
+// despite secret resolution succeeding — and pods historically restarted
 // 4-6× before kubelet's CrashLoopBackOff retry happened to coincide
 // with proxy readiness. Failing fast is the wrong shape: the next ping
 // 500ms-2s later would succeed.

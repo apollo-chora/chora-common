@@ -1,10 +1,7 @@
-// cloudtrace_path_test.go — statement-coverage extension for the real
-// defaultExporterFactory cloudtrace path, the InitOTLP error branches
+// otlp_path_test.go — statement-coverage extension for the real
+// defaultExporterFactory OTLP path, the InitOTLP error branches
 // (resource build, exporter shutdown) and the InitOTLPAsync
-// cancellation branch. Credential-dependent assertions are written
-// defensively: on machines with working ADC the exporter constructs
-// successfully and the shutdown closure runs; on credential-less
-// machines cloudtrace.New fails loudly and we assert that failure.
+// cancellation branch.
 package observability_test
 
 import (
@@ -19,52 +16,40 @@ import (
 	"github.com/apollo-chora/chora-common/observability"
 )
 
-// TestInitOTLP_CloudtracePath_ProjectSet drives defaultExporterFactory's
-// non-dev branch with a resolvable project id (GOOGLE_CLOUD_PROJECT), so
-// the WithProjectID opt and cloudtrace.New call both execute. On a
-// credential-less machine cloudtrace.New must fail loudly with the
-// "cloudtrace:" wrapper; with creds the exporter is built and shutdown
-// runs.
-func TestInitOTLP_CloudtracePath_ProjectSet(t *testing.T) {
+// TestInitOTLP_OTLPEndpoint_ConstructsExporter drives
+// defaultExporterFactory's OTLP branch with an endpoint configured.
+// otlptracegrpc dials lazily, so construction succeeds even with no
+// collector listening — the exporter is real and shuts down cleanly.
+func TestInitOTLP_OTLPEndpoint_ConstructsExporter(t *testing.T) {
 	envMuObs.Lock()
 	defer envMuObs.Unlock()
 	snapshotEnvObs(t)
-	t.Setenv("OTEL_EXPORTER", "")
-	t.Setenv("OTEL_EXPORTER_OTLP_ENDPOINT", "")
-	t.Setenv("GCP_PROJECT", "")
-	t.Setenv("GOOGLE_CLOUD_PROJECT", "chora-489812")
-	t.Setenv("GOOGLE_APPLICATION_CREDENTIALS", "")
+	t.Setenv("OTEL_EXPORTER_OTLP_ENDPOINT", "otel-collector:4317")
 
-	shutdown, err := observability.InitOTLP("chora-cloudtrace-proj", "v0.0.0")
+	shutdown, err := observability.InitOTLP("chora-otlp-endpoint", "v0.0.0")
 	if err != nil {
-		if !strings.Contains(err.Error(), "cloudtrace") {
-			t.Fatalf("InitOTLP err = %v, want a cloudtrace-wrapped exporter error", err)
-		}
-		return
+		t.Fatalf("InitOTLP with OTLP endpoint: %v", err)
 	}
-	defer func() { _ = shutdown() }()
+	if shutdown == nil {
+		t.Fatal("expected non-nil shutdown")
+	}
+	if err := shutdown(); err != nil {
+		t.Errorf("shutdown: %v", err)
+	}
 }
 
-// TestInitOTLP_CloudtracePath_EndpointOnly covers the endpoint-hint-only
-// configuration: the project stays empty, projectIDForLog must emit the
-// "<adc-default>" placeholder, and the exporter is built WITHOUT an
-// explicit WithProjectID (ADC fallback in cloudtrace.New).
-func TestInitOTLP_CloudtracePath_EndpointOnly(t *testing.T) {
+// TestInitOTLP_OTLPEndpoint_ExplicitHostPort covers a host:port endpoint
+// with an explicit scheme-less value, matching the compose collector
+// address (otel-collector:4317).
+func TestInitOTLP_OTLPEndpoint_ExplicitHostPort(t *testing.T) {
 	envMuObs.Lock()
 	defer envMuObs.Unlock()
 	snapshotEnvObs(t)
-	t.Setenv("OTEL_EXPORTER", "")
-	t.Setenv("OTEL_EXPORTER_OTLP_ENDPOINT", "telemetry.googleapis.com:443")
-	t.Setenv("GCP_PROJECT", "")
-	t.Setenv("GOOGLE_CLOUD_PROJECT", "")
-	t.Setenv("GOOGLE_APPLICATION_CREDENTIALS", "")
+	t.Setenv("OTEL_EXPORTER_OTLP_ENDPOINT", "localhost:4317")
 
-	shutdown, err := observability.InitOTLP("chora-cloudtrace-ep", "v0.0.0")
+	shutdown, err := observability.InitOTLP("chora-otlp-hostport", "v0.0.0")
 	if err != nil {
-		if !strings.Contains(err.Error(), "cloudtrace") {
-			t.Fatalf("InitOTLP err = %v, want a cloudtrace-wrapped exporter error", err)
-		}
-		return
+		t.Fatalf("InitOTLP with host:port endpoint: %v", err)
 	}
 	defer func() { _ = shutdown() }()
 }

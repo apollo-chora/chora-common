@@ -8,7 +8,7 @@ import (
 
 // ExporterFactory is the function signature the otel package uses to build a
 // SpanExporter. Tests swap in fakes via SwapExporterFactoryForTest to
-// exercise the cloudtrace branch without real ADC.
+// exercise the OTLP branch without a live collector.
 type ExporterFactory func(ctx context.Context, endpoint, serviceName, version string) (sdktrace.SpanExporter, error)
 
 // SwapExporterFactoryForTest replaces the package-level exporter factory and
@@ -22,7 +22,7 @@ func SwapExporterFactoryForTest(fn ExporterFactory) func() {
 }
 
 // DefaultExporterFactoryForTest exposes the production exporter factory so
-// tests can exercise both the stdout and cloudtrace branches end-to-end.
+// tests can exercise both the stdout and OTLP branches end-to-end.
 // Test-only — production callers should go via Init.
 func DefaultExporterFactoryForTest() ExporterFactory {
 	return defaultExporterFactory

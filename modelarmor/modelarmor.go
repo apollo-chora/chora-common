@@ -1,32 +1,39 @@
-// Package modelarmor is the canonical Chora adapter for Cloud Model Armor —
-// Google's managed runtime-guardrail primitive (GA 2026).
+// Package modelarmor is the canonical Chora guardrail adapter.
 //
 // Per ADR-152 (`docs/architecture/adrs/adr-152-chora-guardrail-superseded-by-cloud-model-armor.md`):
-// this package REPLACES the legacy HTTP client that called the retired
-// `chora-guardrail` Go service. Pre-LLM and post-LLM screening calls now
-// flow directly from the LLM-issuing service (Model Broker Gateway, or its
-// post-ADR-146 successor — chora-ai-kernel orchestrator) to Cloud Model
-// Armor via the official Vertex AI SDK.
+// this package REPLACED the legacy HTTP client that called the retired
+// `chora-guardrail` Go service. Pre-LLM and post-LLM screening calls
+// flow from the LLM-issuing service (Model Broker Gateway, or its
+// post-ADR-146 successor — chora-ai-kernel orchestrator) through the
+// Screener port.
 //
-// The package exposes a narrow port (`Screener`) plus two implementations:
+// 2026-10-05: HISTORY — the Cloud Model Armor gRPC adapter
+// (`cloud.google.com/go/modelarmor/apiv1`) was removed with the
+// platform's Google Cloud exit. The package now ships a LOCAL,
+// deterministic substitute — LocalScreener, a regex/deny-list screener
+// over the request text. It is NOT Cloud Model Armor and MUST NOT be
+// represented as such; it exists so tests and the local compose stack
+// have a working guardrail that returns real FilterHits and an honest
+// Verdict instead of a fake always-clean pass.
 //
-//   - `Client` — concrete adapter wrapping
-//     `cloud.google.com/go/modelarmor/apiv1` (production).
+// The package exposes a narrow port (`Screener`) plus implementations:
+//
+//   - `LocalScreener` — the local regex/deny-list substitute (default).
 //   - `StubScreener` — in-process stub for downstream-package unit tests
 //     (no network).
 //
 // Both speak in canonical Chora types (`ScreenRequest`, `ScreenResult`,
-// `Verdict`, `FilterHit`) so downstream services NEVER import the SDK
-// `modelarmorpb` types directly. This keeps every call site adapter-thin
+// `Verdict`, `FilterHit`) so downstream services NEVER import guardrail
+// vendor SDK types directly. This keeps every call site adapter-thin
 // and lets us swap the underlying guardrail vendor without rewriting
 // business logic (per ADR-152 §"vendor lock-in mitigation").
 //
 // # Verdict mapping
 //
-// Cloud Model Armor returns an overall `FilterMatchState` (NO_MATCH_FOUND
-// or MATCH_FOUND) plus a per-filter map. The template's
-// `enforcement_type` (INSPECT_ONLY vs INSPECT_AND_BLOCK) is configured on
-// the template, NOT returned in the response.
+// The screener returns an overall match state (MATCH_FOUND or
+// NO_MATCH_FOUND) plus a per-filter map. The template's
+// `enforcement_type` (INSPECT_ONLY vs INSPECT_AND_BLOCK) is configured
+// on the template, NOT returned in the response.
 //
 // Safe-default policy (per the task contract):
 //
@@ -34,7 +41,7 @@
 //   - MATCH_FOUND     → VerdictBlock. The caller is expected to honour the
 //     block; downstream policy can override to InspectOnly if the agent's
 //     AgentCard declares the template as `enforcement_type: INSPECT_ONLY`.
-//     `Client.SetTemplateMode(name, mode)` lets the caller register
+//     `LocalScreener.SetTemplateMode(name, mode)` lets the caller register
 //     INSPECT_ONLY templates so the adapter emits VerdictInspectOnly
 //     instead of VerdictBlock. Unknown templates default to BLOCK
 //     (fail-loud per `feedback_resilience_priority`).
@@ -52,11 +59,11 @@
 //
 // `NewScreener` requires `project` + `location` arguments — callers MUST
 // source these from env vars / Terraform per CLAUDE.md §6 + the
-// `secrets-and-env` skill. The full template resource name
-// (`projects/{project}/locations/{location}/templates/{template_id}`) is
-// passed per-call in `ScreenRequest.TemplateName` so a single client can
-// fan out across multiple templates per the risk-tiered per-agent
-// principle (Tier 3 D9 preserved by ADR-152).
+// `secrets-and-env` skill. The arguments are validated and recorded on
+// spans for audit but no longer select a cloud endpoint. The template
+// name is passed per-call in `ScreenRequest.TemplateName` so a single
+// screener can fan out across multiple templates per the risk-tiered
+// per-agent principle (Tier 3 D9 preserved by ADR-152).
 package modelarmor
 
 import (
@@ -88,9 +95,9 @@ const (
 )
 
 // TemplateMode declares whether a template is INSPECT_ONLY or
-// INSPECT_AND_BLOCK. Used by `Client.SetTemplateMode` so the adapter
-// can downgrade VerdictBlock → VerdictInspectOnly for audit-only
-// templates (the SDK does not return the enforcement type in-band).
+// INSPECT_AND_BLOCK. Used by `LocalScreener.SetTemplateMode` so the
+// screener can downgrade VerdictBlock → VerdictInspectOnly for
+// audit-only templates.
 type TemplateMode string
 
 const (
@@ -101,11 +108,12 @@ const (
 	TemplateModeInspectOnly TemplateMode = "INSPECT_ONLY"
 )
 
-// Canonical filter-name constants matching the keys returned by Cloud
-// Model Armor in `SanitizationResult.FilterResults` (lowercase per the
-// SDK proto definition). Downstream policy code MUST switch on these
-// constants — never on raw strings — so a Model Armor key rename surfaces
-// at compile time.
+// Canonical filter-name constants matching the keys a managed
+// guardrail returns in its per-filter result map (lowercase per the
+// Cloud Model Armor proto definition, retained as the platform's
+// canonical filter vocabulary). Downstream policy code MUST switch on
+// these constants — never on raw strings — so a filter-key rename
+// surfaces at compile time.
 const (
 	FilterNameRAI            = "rai"
 	FilterNameSDP            = "sdp"
@@ -123,8 +131,8 @@ const (
 	MatchStateUnspecified  = "FILTER_MATCH_STATE_UNSPECIFIED"
 )
 
-// Canonical severity strings derived from Cloud Model Armor's
-// DetectionConfidenceLevel enum (LOW_AND_ABOVE/MEDIUM_AND_ABOVE/HIGH).
+// Canonical severity strings derived from a managed guardrail's
+// detection-confidence levels (LOW_AND_ABOVE/MEDIUM_AND_ABOVE/HIGH).
 // Empty string when the filter has no confidence dimension (e.g. CSAM,
 // MaliciousURI return only match_state).
 const (
@@ -151,8 +159,10 @@ type ScreenRequest struct {
 	// screened. Optional (empty when the call is system-initiated).
 	GCID string
 
-	// TemplateName — full Cloud Model Armor template resource name,
-	// e.g. `projects/chora-489812/locations/us-central1/templates/chora-guardrail-strict-dev`.
+	// TemplateName — the guardrail template identifier the caller
+	// selected for this agent (historically a full Cloud Model Armor
+	// template resource name, e.g.
+	// `projects/chora-489812/locations/us-central1/templates/chora-guardrail-strict-dev`).
 	// The LLM-issuing service reads this from the AgentCard per
 	// ADR-152 §"Risk-tiered per-agent (D9 preserved)". Required.
 	TemplateName string
@@ -176,7 +186,7 @@ type ScreenResult struct {
 	// for Allow) so traces capture the full screening matrix.
 	Filters []FilterHit
 
-	// LatencyMs — wall-clock time of the underlying SDK call.
+	// LatencyMs — wall-clock time of the screening call.
 	LatencyMs int64
 
 	// RawResponse — opaque map for downstream debug + trace span
@@ -208,7 +218,7 @@ type FilterHit struct {
 }
 
 // Screener is the port. Downstream code depends ONLY on this interface —
-// never on the concrete `Client`. Tests inject `StubScreener`.
+// never on a concrete implementation. Tests inject `StubScreener`.
 //
 // Both methods are sync within the caller's request span (no fan-out per
 // ADR-152 §"LLM-issuing service wiring"). Errors are fail-loud per

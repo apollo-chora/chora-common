@@ -1,7 +1,7 @@
 // Package db — retry-backoff for the Bootstrap Ping step.
 //
 // This file is the ATOM-1c §"Cold-start note" remediation. It mirrors
-// the JWKS + Secret Manager retry-backoff pattern at
+// the retry-backoff pattern at
 // chora-common/secrets/backoff.go (commit 4c50a1d5) for
 // pgxpool.Pool.Ping calls during cold start.
 //
@@ -11,9 +11,9 @@
 //	    will CrashLoopBackOff):
 //	  db.Bootstrap: ping: context deadline exceeded
 //
-// A fresh node has not yet warmed the Cloud SQL Auth Proxy sidecar
+// A fresh node has not yet warmed the Postgres sidecar
 // + IP routing tables. The first Ping on the boot path can
-// context-deadline despite Secret Manager succeeding — and pods
+// context-deadline despite secret resolution succeeding — and pods
 // historically restarted 4-6× before kubelet's CrashLoopBackOff retry
 // happened to coincide with proxy readiness.
 //

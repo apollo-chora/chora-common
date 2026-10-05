@@ -23,8 +23,6 @@ var envKeys = []string{
 	"OTEL_TRACES_SAMPLER",
 	"OTEL_TRACES_SAMPLER_ARG",
 	"OTEL_RESOURCE_ATTRIBUTES",
-	"GOOGLE_CLOUD_PROJECT",
-	"GOOGLE_APPLICATION_CREDENTIALS",
 	"DEPLOYMENT_ENVIRONMENT",
 	"CLOUD_REGION",
 }
@@ -76,7 +74,6 @@ func TestInit_ExplicitStdoutMode(t *testing.T) {
 	defer envMu.Unlock()
 	snapshotEnv(t)
 	t.Setenv("OTEL_EXPORTER", "stdout")
-	t.Setenv("GOOGLE_CLOUD_PROJECT", "chora-489812")
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
@@ -104,17 +101,15 @@ func TestInit_RejectsEmptyServiceName(t *testing.T) {
 	}
 }
 
-// TestInit_FactorySwap_ProvesCloudTracePathReached swaps in a recording
-// factory to prove the cloudtrace branch is reached when env signals are
-// present. This is the load-bearing Wave B regression: pre-fix wiring
-// dropped spans because TLS failed against telemetry.googleapis.com:443
-// under WithInsecure().
-func TestInit_FactorySwap_ProvesCloudTracePathReached(t *testing.T) {
+// TestInit_FactorySwap_ProvesOTLPPathReached swaps in a recording
+// factory to prove the OTLP branch is reached when the endpoint env is
+// set. This is the load-bearing regression: the exporter selection is
+// driven by OTEL_EXPORTER_OTLP_ENDPOINT, not by cloud credentials.
+func TestInit_FactorySwap_ProvesOTLPPathReached(t *testing.T) {
 	envMu.Lock()
 	defer envMu.Unlock()
 	snapshotEnv(t)
-	t.Setenv("OTEL_EXPORTER_OTLP_ENDPOINT", "telemetry.googleapis.com:443")
-	t.Setenv("GOOGLE_CLOUD_PROJECT", "chora-489812")
+	t.Setenv("OTEL_EXPORTER_OTLP_ENDPOINT", "otel-collector:4317")
 
 	var (
 		called         bool
@@ -133,7 +128,7 @@ func TestInit_FactorySwap_ProvesCloudTracePathReached(t *testing.T) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	shutdown, err := choraotel.Init(ctx, "chora-cloudtrace-test", "v0.0.0")
+	shutdown, err := choraotel.Init(ctx, "chora-otlp-test", "v0.0.0")
 	if err != nil {
 		t.Fatalf("Init: %v", err)
 	}
@@ -142,10 +137,10 @@ func TestInit_FactorySwap_ProvesCloudTracePathReached(t *testing.T) {
 	if !called {
 		t.Fatal("exporter factory not invoked")
 	}
-	if gotEndpoint != "telemetry.googleapis.com:443" {
-		t.Errorf("endpoint hint: got %q want telemetry.googleapis.com:443", gotEndpoint)
+	if gotEndpoint != "otel-collector:4317" {
+		t.Errorf("endpoint hint: got %q want otel-collector:4317", gotEndpoint)
 	}
-	if gotServiceName != "chora-cloudtrace-test" {
+	if gotServiceName != "chora-otlp-test" {
 		t.Errorf("service name not threaded: got %q", gotServiceName)
 	}
 }
@@ -154,7 +149,7 @@ func TestInit_FactoryErrorBubblesUp(t *testing.T) {
 	envMu.Lock()
 	defer envMu.Unlock()
 	snapshotEnv(t)
-	t.Setenv("GOOGLE_CLOUD_PROJECT", "chora-489812")
+	t.Setenv("OTEL_EXPORTER_OTLP_ENDPOINT", "otel-collector:4317")
 
 	wantErr := errExporter("factory failed")
 	restore := choraotel.SwapExporterFactoryForTest(
@@ -276,31 +271,26 @@ func TestDefaultFactory_StdoutBranch(t *testing.T) {
 	_ = exp.Shutdown(context.Background())
 }
 
-// TestDefaultFactory_CloudTraceBranch_ErrorPath proves the cloudtrace branch
-// is invoked in production mode. When ADC is absent (likely on a CI runner
-// with no creds), cloudtrace.New errors out — that's still proof the
-// branch runs.
-func TestDefaultFactory_CloudTraceBranch_ErrorPath(t *testing.T) {
+// TestDefaultFactory_OTLPBranch_Constructs proves the OTLP branch is
+// invoked in production mode and that the real otlptracegrpc exporter
+// constructs + shuts down cleanly. The exporter dials lazily, so no
+// collector needs to be listening.
+func TestDefaultFactory_OTLPBranch_Constructs(t *testing.T) {
 	envMu.Lock()
 	defer envMu.Unlock()
 	snapshotEnv(t)
-	// Force production mode: pretend a project is configured. ADC will
-	// still fail in CI, which is fine — we just want the cloudtrace branch
-	// to execute.
-	t.Setenv("GOOGLE_CLOUD_PROJECT", "chora-fake-project-for-test")
-	t.Setenv("GOOGLE_APPLICATION_CREDENTIALS", "/dev/null") // force ADC failure
-	t.Setenv("OTEL_EXPORTER_OTLP_ENDPOINT", "telemetry.googleapis.com:443")
+	t.Setenv("OTEL_EXPORTER_OTLP_ENDPOINT", "otel-collector:4317")
 
 	fn := choraotel.DefaultExporterFactoryForTest()
-	exp, err := fn(context.Background(), "telemetry.googleapis.com:443", "chora-real-cloudtrace", "v0.0.0")
-	// Either the exporter constructs (rare in CI) or errors — both prove
-	// the branch ran. We don't shutdown a real Cloud Trace client because
-	// the test creds are bogus.
-	if err == nil && exp == nil {
-		t.Fatal("both error and exporter nil — branch did not execute")
+	exp, err := fn(context.Background(), "otel-collector:4317", "chora-real-otlp", "v0.0.0")
+	if err != nil {
+		t.Fatalf("default factory OTLP branch: %v", err)
 	}
-	if exp != nil {
-		_ = exp.Shutdown(context.Background())
+	if exp == nil {
+		t.Fatal("nil exporter — branch did not execute")
+	}
+	if err := exp.Shutdown(context.Background()); err != nil {
+		t.Errorf("shutdown: %v", err)
 	}
 }
 
@@ -322,13 +312,13 @@ func TestIsDevExport_TrueWhenNoProductionSignals(t *testing.T) {
 	}
 }
 
-func TestIsDevExport_FalseWhenProjectSet(t *testing.T) {
+func TestIsDevExport_FalseWhenEndpointSet(t *testing.T) {
 	envMu.Lock()
 	defer envMu.Unlock()
 	snapshotEnv(t)
-	t.Setenv("GOOGLE_CLOUD_PROJECT", "chora-489812")
+	t.Setenv("OTEL_EXPORTER_OTLP_ENDPOINT", "otel-collector:4317")
 	if choraotel.IsDevExportForTest() {
-		t.Error("project set => should not be dev")
+		t.Error("endpoint set => should not be dev")
 	}
 }
 

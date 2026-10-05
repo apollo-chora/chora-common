@@ -1,15 +1,13 @@
 // Package secrets backoff helper — RED phase first.
 //
-// Mirrors the JWKS retry-backoff pattern at
-// chora-common/auth/identityplatform/identityplatform.go
-// (TestValidator_TransientFailures_ResolvedByRetryBackoff +
-// TestValidator_PersistentFailure_FailsClosedAfterBackoff +
-// TestValidator_StartupBackoff_HonoursContextCancel).
+// Mirrors the JWKS retry-backoff pattern historically used for
+// key-endpoint calls (transient-failure-retry +
+// persistent-failure-fails-closed + startup-honours-context-cancel).
 //
-// Rationale: E2E-INFRA-COLD-START §3b — Secret Manager occasionally
+// Rationale: E2E-INFRA-COLD-START §3b — secret resolution occasionally
 // returns Unavailable / DeadlineExceeded during cold start on a fresh
-// node (Workload Identity Federation token propagation lag). A naive
-// AccessSecretVersion call inside the boot sequence then fails the
+// node (credential token propagation lag). A naive
+// single-shot call inside the boot sequence then fails the
 // whole pod — even when the next call 1-2s later would succeed.
 //
 // The helper applies the same 6-attempt / 500ms-base / 8s-cap /

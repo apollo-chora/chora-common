@@ -19,19 +19,19 @@ import (
 	"time"
 
 	"github.com/apollo-chora/chora-common/envelope"
+	chbus "github.com/apollo-chora/chora-common/eventbus"
 	"github.com/apollo-chora/chora-common/outbox"
-	chpubsub "github.com/apollo-chora/chora-common/pubsub"
 )
 
 func TestOutboxRoundTrip_WithShuffledTimestamps(t *testing.T) {
 	rec := newInMemRecorder()
-	bus := chpubsub.NewInMemoryBus(chpubsub.WithSynchronousDelivery())
+	bus := chbus.NewInMemoryBus(chbus.WithSynchronousDelivery())
 	defer bus.Close()
 
 	var received []string
 	var mu sync.Mutex
 	cancel, err := bus.Subscribe(context.Background(), "chora.creation.atom.created.v1",
-		func(_ context.Context, msg *chpubsub.Message) error {
+		func(_ context.Context, msg chbus.Message) error {
 			mu.Lock()
 			received = append(received, string(msg.Payload))
 			mu.Unlock()
@@ -131,13 +131,13 @@ func TestOutboxRoundTrip_WithShuffledTimestamps(t *testing.T) {
 
 func TestOutboxChaos_RelayCrashMidPublishResumesWithoutDuplicates(t *testing.T) {
 	rec := newInMemRecorder()
-	bus := chpubsub.NewInMemoryBus(chpubsub.WithSynchronousDelivery())
+	bus := chbus.NewInMemoryBus(chbus.WithSynchronousDelivery())
 	defer bus.Close()
 
 	var received []string
 	var mu sync.Mutex
 	cancel, err := bus.Subscribe(context.Background(), "chora.creation.atom.created.v1",
-		func(_ context.Context, msg *chpubsub.Message) error {
+		func(_ context.Context, msg chbus.Message) error {
 			mu.Lock()
 			received = append(received, string(msg.Payload))
 			mu.Unlock()
@@ -358,7 +358,7 @@ func (r *inMemRecorder) requeueDeadlettered() {
 // publish it cancels its parent context AND returns a "process died"
 // error. The relay's outer loop honours the cancel and exits.
 type chaosBus struct {
-	delegate  *chpubsub.InMemoryBus
+	delegate  *chbus.InMemoryBus
 	killAt    int
 	count     int32
 	cancelCtx context.CancelFunc

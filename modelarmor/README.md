@@ -1,4 +1,4 @@
-# modelarmor — Canonical Cloud Model Armor adapter
+# modelarmor — Canonical Chora guardrail adapter
 
 > Aligned with **Architecture Review locked 2026-05-07** + **ADR-152**.
 > Sources:
@@ -9,10 +9,18 @@
 
 ## What this is
 
-`modelarmor` is the **single canonical Go adapter** for Cloud Model
-Armor (GA 2026) across all Chora services. It replaces the legacy HTTP
-client that called the retired `chora-guardrail` Go service (per
-ADR-152).
+`modelarmor` is the **single canonical Go guardrail adapter** across
+all Chora services. It replaces the legacy HTTP client that called the
+retired `chora-guardrail` Go service (per ADR-152).
+
+**2026-10-05: the Cloud Model Armor gRPC adapter
+(`cloud.google.com/go/modelarmor/apiv1`) was removed with the platform's
+Google Cloud exit.** The package now ships a LOCAL, deterministic
+substitute — `LocalScreener`, a regex/deny-list screener over the
+request text. It is **NOT Cloud Model Armor** and MUST NOT be
+represented as such. It exists so tests and the local compose stack
+have a working guardrail that returns real `FilterHit`s and an honest
+`Verdict` instead of a fake always-clean pass.
 
 Every pre-LLM and post-LLM screening call in Chora flows through this
 package:
@@ -20,12 +28,11 @@ package:
 ```
 chora-ai-kernel orchestrator
     └─ chora-common/modelarmor (this package)
-            └─ cloud.google.com/go/modelarmor/apiv1 (SDK)
-                    └─ Cloud Model Armor v1 gRPC endpoint
+            └─ LocalScreener (regex/deny-list, in-process)
 ```
 
 Downstream code depends ONLY on the `Screener` interface — it never
-imports `modelarmorpb` directly. This keeps every call site
+imports a guardrail vendor SDK directly. This keeps every call site
 adapter-thin and lets us swap the underlying guardrail vendor without
 rewriting business logic.
 
@@ -45,6 +52,8 @@ func main() {
     ctx := context.Background()
 
     // Project + location are env-sourced — see CLAUDE.md §6.
+    // They are validated + recorded on spans for audit but no longer
+    // select a cloud endpoint.
     s, err := modelarmor.NewScreener(ctx,
         os.Getenv("CHORA_MODELARMOR_PROJECT"),  // "chora-489812"
         os.Getenv("CHORA_MODELARMOR_LOCATION"), // "us-central1"
@@ -56,7 +65,7 @@ func main() {
 
     // Optional: register audit-only templates so MATCH → InspectOnly
     // (default: any MATCH → Block).
-    s.(*modelarmor.Client).SetTemplateMode(
+    s.(*modelarmor.LocalScreener).SetTemplateMode(
         "projects/chora-489812/locations/us-central1/templates/chora-guardrail-permissive-dev",
         modelarmor.TemplateModeInspectOnly,
     )
@@ -99,22 +108,19 @@ func main() {
 
 ## Verdict mapping
 
-Cloud Model Armor returns an overall `FilterMatchState` plus a
-per-filter map. The template's `enforcement_type`
-(INSPECT_ONLY vs INSPECT_AND_BLOCK) is **configured on the template
-itself, not in the SDK response**. This adapter applies the
-safe-default policy:
+The screener returns an overall match state plus a per-filter map. The
+template's `enforcement_type` (INSPECT_ONLY vs INSPECT_AND_BLOCK) is
+**configured by the caller, not returned in-band**. The local
+substitute applies the safe-default policy:
 
-| SDK response | Registered template mode | `Verdict` |
+| Match state | Registered template mode | `Verdict` |
 |---|---|---|
 | `NO_MATCH_FOUND` | (any) | `VerdictAllow` |
 | `MATCH_FOUND` | `TemplateModeBlock` (default) | `VerdictBlock` |
 | `MATCH_FOUND` | `TemplateModeInspectOnly` | `VerdictInspectOnly` |
-| `FILTER_MATCH_STATE_UNSPECIFIED` | (any) | `VerdictBlock` (defensive) |
-| nil `SanitizationResult` | (any) | `VerdictAllow` (no signal — caller owns fail-loud policy) |
 
 Callers MUST register INSPECT_ONLY templates at boot via
-`Client.SetTemplateMode(name, modelarmor.TemplateModeInspectOnly)`.
+`LocalScreener.SetTemplateMode(name, modelarmor.TemplateModeInspectOnly)`.
 Unknown templates default to BLOCK — this matches the fail-loud
 posture in `feedback_resilience_priority`.
 
@@ -124,17 +130,17 @@ posture in `feedback_resilience_priority`.
 even for VerdictAllow — so audit traces can enumerate which filters
 were evaluated.
 
-Filter names match the SDK's `SanitizationResult.FilterResults` map
-keys exactly:
+Filter names follow the canonical guardrail filter vocabulary (the
+Cloud Model Armor proto key names, retained as the platform standard):
 
-| Constant | Filter | Severity dimension | Notes |
-|---|---|---|---|
-| `FilterNameRAI` (`"rai"`) | Responsible AI | yes (per RAI sub-type) | Each `RaiFilterTypeResult` (hate_speech / harassment / sexually_explicit / dangerous) becomes its own `FilterHit` row, with `Subcategory` populated. |
-| `FilterNamePIAndJailbreak` (`"pi_and_jailbreak"`) | Prompt injection + jailbreak | yes | |
-| `FilterNameSDP` (`"sdp"`) | Sensitive Data Protection (Cloud DLP) | no | Inspect vs Deidentify result paths captured in `RawResponse`. |
-| `FilterNameMaliciousURI` (`"malicious_uri"`) | Malicious URI | no | |
-| `FilterNameCSAM` (`"csam"`) | CSAM | no | |
-| `FilterNameVirusScan` (`"virus_scan"`) | Virus scan | no | |
+| Constant | Filter | Local coverage |
+|---|---|---|
+| `FilterNameRAI` (`"rai"`) | Responsible AI | HARASSMENT (self-harm incitement) + DANGEROUS (weapons/explosives instructions) sub-categories, each its own `FilterHit` row with `Subcategory` populated. |
+| `FilterNamePIAndJailbreak` (`"pi_and_jailbreak"`) | Prompt injection + jailbreak | ignore/disregard/override previous instructions, system-prompt reveal, "you are now …", DAN, "jailbreak". |
+| `FilterNameSDP` (`"sdp"`) | Sensitive Data Protection | card numbers, US SSN, AWS access keys, PEM private keys, credential assignments, email addresses. |
+| `FilterNameMaliciousURI` (`"malicious_uri"`) | Malicious URI | IP-literal URLs, `.onion` URLs. |
+| `FilterNameCSAM` (`"csam"`) | CSAM | sexual content involving minors (text patterns only — no image analysis). |
+| `FilterNameVirusScan` (`"virus_scan"`) | Virus scan | **Not covered** — content scanning is not a regex problem; always `NO_MATCH_FOUND`. |
 
 `RawResponse` is an `attribute.KeyValue`-safe map (string / int64 /
 bool scalars only) for OTel span enrichment.
@@ -154,8 +160,6 @@ Attributes:
 | `chora.agent_id` | string | `ScreenRequest.AgentID` |
 | `chora.gcid` | string | `ScreenRequest.GCID` |
 | `modelarmor.template` | string | `ScreenRequest.TemplateName` |
-| `modelarmor.project` | string | `NewScreener(project, ...)` |
-| `modelarmor.location` | string | `NewScreener(..., location)` |
 | `modelarmor.verdict` | string | computed |
 | `modelarmor.latency_ms` | int64 | wall-clock |
 | `modelarmor.filter_hits` | int | count where MatchState == MATCH_FOUND |
@@ -211,25 +215,10 @@ The stub also supports:
 - `ErrStubExplicit` — canonical sentinel for tests that want to assert
   the caller surfaces a Screener error
 
-## Integration test
-
-`integration_test.go` is gated behind the `integration` build tag and
-hits a real Cloud Model Armor template. Skipped in the default
-`go test ./...` run. To run locally:
-
-```bash
-export CHORA_MODELARMOR_PROJECT=chora-489812
-export CHORA_MODELARMOR_LOCATION=us-central1
-export CHORA_MODELARMOR_TEMPLATE=projects/chora-489812/locations/us-central1/templates/chora-guardrail-strict-dev
-export GOOGLE_APPLICATION_CREDENTIALS=$HOME/.config/gcloud/sa-keys/dale-cli-chora-489812.json
-
-go test -tags=integration ./modelarmor/...
-```
-
 ## Cross-references
 
 - **ADR-152** — `docs/architecture/adrs/adr-152-chora-guardrail-superseded-by-cloud-model-armor.md` — why this package exists + what it replaces.
 - **Tier 3 D9** — `docs/architecture-review-inputs-2026-05-07.md` — original risk-tiered per-agent guardrail decision (locked 2026-05-07; ADR-152 supersedes the implementation, preserves the principle).
 - **Skill `ai-runtime-guardrails`** — usage patterns + per-agent template provisioning.
 - **No-inline-config** — `feedback_no_inline_config` memory + `secrets-and-env` skill. `NewScreener` requires project + location as args; no defaults baked in.
-- **Resilience priority** — `feedback_resilience_priority` memory. The adapter is fail-loud — the caller owns retry / fallback policy.
+- **Resilience priority** — `feedback_resilience_priority` memory. The screener is fail-loud — the caller owns retry / fallback policy.

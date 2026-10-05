@@ -16,7 +16,7 @@
 //	if err != nil { log.Fatal(...) }
 //
 // Under a 4-container PgBouncer-sidecar cold-start the metadata-server
-// saturates; the OTLP exporter init (ADC token mint + Cloud Trace TLS
+// saturates; the OTLP exporter init (token mint + collector TLS
 // handshake) can swallow the bulk of the bootstrap deadline. pgx pool
 // init then races a near-empty context and crash-loops the pod.
 //
@@ -63,7 +63,7 @@ import (
 
 // DefaultOTLPInitTimeout is the fallback OTLP-init deadline when
 // CHORA_OTLP_INIT_TIMEOUT_SECONDS is unset / garbage. 15s is long
-// enough to absorb a typical Cloud Trace TLS handshake but short
+// enough to absorb a typical collector TLS handshake but short
 // enough that a slow metadata-server can't hold the rest of boot
 // hostage. Operators tune via env var per CLAUDE.md no-inline-config
 // rule.

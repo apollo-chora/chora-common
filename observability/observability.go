@@ -1,10 +1,13 @@
 // Package observability is the shared OTLP-everywhere helper library used by
 // every Chora Go service. Wraps the OpenTelemetry SDK with:
 //
-//  1. InitOTLP — bootstrap helper that initialises the OTLP/gRPC exporter
-//     pointing at Cloud Trace via OTEL_EXPORTER_OTLP_ENDPOINT (env-only,
-//     per CLAUDE.md no-inline-config rule). Returns a shutdown closure
-//     that services MUST defer in main(). Stdout fallback in dev.
+//  1. InitOTLP — bootstrap helper that initialises the OTLP/gRPC trace
+//     exporter driven by OTEL_EXPORTER_OTLP_ENDPOINT (env-only, per
+//     CLAUDE.md no-inline-config rule). The root compose runs an OTel
+//     Collector at otel-collector:4317; services point at it. When the
+//     endpoint is unset the exporter degrades explicitly to stdouttrace
+//     (local dev) — startup NEVER fails on trace wiring. Returns a
+//     shutdown closure that services MUST defer in main().
 //
 //  2. StartSpan — wraps tracer.Start() with the chora.* + gen_ai.* attribute
 //     namespace conventions (OpenInference / OpenLLMetry).
@@ -24,16 +27,18 @@
 //     context across the Python orchestrator ↔ Go executor boundary.
 //
 //  7. NewSlogLogger — JSON slog handler that adds traceparent + the
-//     Cloud Logging logging.googleapis.com/trace correlation field, so
-//     log lines auto-link to Cloud Trace.
+//     logging.googleapis.com/trace correlation field, so log lines
+//     auto-link to the trace backend.
 //
 // Design choices:
 //
-//   - Direct OTLP to Cloud Trace; NO OTel Collector unless trip-wired
-//     (per Tier 3 D12 + ai-observability-cloud-trace skill).
-//   - Endpoint is env-only — local dev falls back to stdouttrace.
-//   - Insecure transport at the wire level; mTLS provided by Cloud
-//     Service Mesh between services in production.
+//   - Standard OTLP/gRPC exporter only — no cloud-specific trace exporter.
+//     The platform is broker-neutral; the OTel Collector terminates OTLP
+//     and forwards to the configured backend.
+//   - Endpoint is env-only — local dev (unset endpoint) falls back to
+//     stdouttrace.
+//   - Insecure transport at the wire level; mTLS is the collector's /
+//     service mesh's concern, not the SDK's.
 //
 // Aligned with: Architecture Review locked 2026-05-07 Tier 3 D12,
 // Post-Review Addendum #2.
@@ -52,10 +57,9 @@ import (
 	"sync"
 	"time"
 
-	gcemetadata "cloud.google.com/go/compute/metadata"
-	cloudtrace "github.com/GoogleCloudPlatform/opentelemetry-operations-go/exporter/trace"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
 	"go.opentelemetry.io/otel/exporters/stdout/stdouttrace"
 	"go.opentelemetry.io/otel/propagation"
 	"go.opentelemetry.io/otel/sdk/resource"
@@ -117,20 +121,21 @@ var globalInit = &initState{}
 // exporterFactory builds a SpanExporter for the given endpoint hint.
 // Swappable in tests via SwapExporterFactoryForTest.
 //
-// 2026-05-14 (Wave B / tracker #146): default factory now uses the Cloud
-// Trace exporter from GoogleCloudPlatform/opentelemetry-operations-go.
-// Previously this lib called otlptracegrpc.New(..., WithInsecure()) which
-// silently failed TLS against telemetry.googleapis.com:443. cloudtrace.New
-// handles TLS + ADC bearer-token auth natively, and the endpoint env var
-// remains honoured as a log-only hint for operator debugging.
+// 2026-10-05: HISTORY — the Cloud Trace exporter from
+// GoogleCloudPlatform/opentelemetry-operations-go was removed with the
+// platform's Google Cloud exit. The factory now builds the standard
+// OTLP/gRPC exporter (otlptracegrpc) against OTEL_EXPORTER_OTLP_ENDPOINT;
+// when the endpoint is unset it degrades explicitly to stdouttrace so
+// local dev never fails startup on trace wiring.
 type exporterFactoryFn func(ctx context.Context, endpoint, serviceName, version string) (sdktrace.SpanExporter, error)
 
 var exporterFactory exporterFactoryFn = defaultExporterFactory
 
 // InitOTLP wires the trace exporter and registers a global TracerProvider.
-// Returns a shutdown func the caller MUST defer in main(). When in
-// dev (no GOOGLE_CLOUD_PROJECT / ADC / endpoint configured), falls back to
-// stdouttrace.
+// Returns a shutdown func the caller MUST defer in main(). When
+// OTEL_EXPORTER_OTLP_ENDPOINT is unset (local dev), falls back to
+// stdouttrace; when set, exports via OTLP/gRPC to that endpoint (the
+// root compose runs an OTel Collector at otel-collector:4317).
 //
 // serviceName MUST be non-empty. version is the build SHA / semver tag.
 //
@@ -245,13 +250,13 @@ func InitOTLPAsync(ctx context.Context, serviceName, version string) *bootstrap.
 	})
 }
 
-// defaultExporterFactory mirrors chora-common/otel — Cloud Trace
-// exporter in production, stdouttrace in dev. The endpoint hint is logged
-// but not used (cloudtrace exporter has a fixed endpoint internally;
-// project discovery happens via ADC).
+// defaultExporterFactory mirrors chora-common/otel — OTLP/gRPC exporter
+// when OTEL_EXPORTER_OTLP_ENDPOINT is set, stdouttrace in dev. The
+// endpoint is passed to the exporter verbatim (host:port); the exporter
+// dials lazily, so construction never blocks or fails on an unreachable
+// collector.
 func defaultExporterFactory(ctx context.Context, endpoint, serviceName, version string) (sdktrace.SpanExporter, error) {
-	metadataProjectID := func() (string, bool) { return gceMetadataProjectID(ctx) }
-	if isDevExport(os.Getenv, metadataProjectID) {
+	if isDevExport() {
 		log.Printf("observability: dev mode; spans -> stdout (service=%s version=%s)",
 			serviceName, version)
 		exp, err := stdouttrace.New(stdouttrace.WithPrettyPrint())
@@ -261,105 +266,27 @@ func defaultExporterFactory(ctx context.Context, endpoint, serviceName, version 
 		return exp, nil
 	}
 
-	projectID := resolveProjectID(os.Getenv, metadataProjectID)
-	log.Printf("observability: cloudtrace exporter (project=%s endpoint_hint=%s) service=%s version=%s",
-		projectIDForLog(projectID), endpoint, serviceName, version)
-
-	opts := []cloudtrace.Option{cloudtrace.WithContext(ctx)}
-	if projectID != "" {
-		opts = append(opts, cloudtrace.WithProjectID(projectID))
-	}
-	exp, err := cloudtrace.New(opts...)
+	log.Printf("observability: otlp exporter (endpoint=%s) service=%s version=%s",
+		endpoint, serviceName, version)
+	exp, err := otlptracegrpc.New(ctx,
+		otlptracegrpc.WithEndpoint(endpoint),
+		otlptracegrpc.WithInsecure(),
+	)
 	if err != nil {
-		return nil, fmt.Errorf("cloudtrace: %w", err)
+		return nil, fmt.Errorf("otlptracegrpc: %w", err)
 	}
 	return exp, nil
 }
 
-// resolveProjectID picks the GCP project id the cloudtrace exporter should
-// use, in precedence order:
-//
-//  1. GOOGLE_CLOUD_PROJECT (existing behavior — unchanged, still wins).
-//  2. GCP_PROJECT — every Chora service manifest sets this under Workload
-//     Identity (chora-a2a-gateway confirmed 2026-07-01), while
-//     GOOGLE_CLOUD_PROJECT is frequently absent.
-//  3. The GCE/GKE metadata server project id, via metadataProjectID.
-//  4. "" — deliberately never a fabricated value. cloudtrace.New() falls
-//     back to its own ADC lookup (google.FindDefaultCredentials) when
-//     projectID is empty; if THAT also can't find a project it fails loudly
-//     ("stackdriver: no project found with application default
-//     credentials") and InitOTLP returns that error. resolveProjectID must
-//     never swallow that failure signal by guessing a project id.
-//
-// getenv and metadataProjectID are injected so the precedence is unit-
-// testable without a real metadata server. metadataProjectID may be nil
-// (treated as "no metadata source available").
-func resolveProjectID(getenv func(string) string, metadataProjectID func() (string, bool)) string {
-	if v := strings.TrimSpace(getenv("GOOGLE_CLOUD_PROJECT")); v != "" {
-		return v
-	}
-	if v := strings.TrimSpace(getenv("GCP_PROJECT")); v != "" {
-		return v
-	}
-	if metadataProjectID != nil {
-		if v, ok := metadataProjectID(); ok {
-			if v = strings.TrimSpace(v); v != "" {
-				return v
-			}
-		}
-	}
-	return ""
-}
-
-// gceMetadataProjectID resolves the project id from the GCE/GKE metadata
-// server — the mechanism Workload Identity relies on. Returns ("", false)
-// when not running on GCE, or on any lookup error/empty result; either way
-// resolveProjectID treats that as "no metadata source, keep falling
-// through" rather than an error.
-func gceMetadataProjectID(ctx context.Context) (string, bool) {
-	if !gcemetadata.OnGCEWithContext(ctx) {
-		return "", false
-	}
-	id, err := gcemetadata.ProjectIDWithContext(ctx)
-	if err != nil || strings.TrimSpace(id) == "" {
-		return "", false
-	}
-	return id, true
-}
-
 // isDevExport reports whether defaultExporterFactory should fall back to
-// stdout-dev-mode export instead of the cloudtrace path.
-//
-// Bug context (2026-07-01, same incident as resolveProjectID above):
-// isDevExport used to gate its project-presence leg on GOOGLE_CLOUD_PROJECT
-// alone, out of sync with resolveProjectID's GOOGLE_CLOUD_PROJECT -> GCP_PROJECT
-// -> GCE/GKE metadata precedence. A service that resolves a project only via
-// GCP_PROJECT or metadata (and sets no OTEL_EXPORTER_OTLP_ENDPOINT) would
-// satisfy isDevExport's old AND-condition and silently degrade to stdout
-// export — never reaching the cloudtrace path resolveProjectID resolves a
-// project for. isDevExport now delegates project-presence to resolveProjectID
-// so the two checks can't drift out of precedence sync again.
-//
-// getenv and metadataProjectID are injected exactly like resolveProjectID so
-// this stays unit-testable without a real metadata server; metadataProjectID
-// may be nil.
-func isDevExport(getenv func(string) string, metadataProjectID func() (string, bool)) bool {
-	if strings.EqualFold(strings.TrimSpace(getenv("OTEL_EXPORTER")), "stdout") {
+// stdout-dev-mode export instead of the OTLP path: either the operator
+// explicitly opted into stdout (OTEL_EXPORTER=stdout) or no OTLP endpoint
+// is configured (local dev laptop).
+func isDevExport() bool {
+	if strings.EqualFold(strings.TrimSpace(os.Getenv("OTEL_EXPORTER")), "stdout") {
 		return true
 	}
-	if getenv("OTEL_EXPORTER_OTLP_ENDPOINT") == "" &&
-		resolveProjectID(getenv, metadataProjectID) == "" &&
-		getenv("GOOGLE_APPLICATION_CREDENTIALS") == "" {
-		return true
-	}
-	return false
-}
-
-func projectIDForLog(p string) string {
-	if p == "" {
-		return "<adc-default>"
-	}
-	return p
+	return strings.TrimSpace(os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT")) == ""
 }
 
 func buildResource(ctx context.Context, serviceName, version string) (*resource.Resource, error) {
@@ -384,20 +311,19 @@ func buildResource(ctx context.Context, serviceName, version string) (*resource.
 }
 
 // newFilteringExporter wraps the real exporter but DROPS spans for the trace-
-// exporter's OWN outbound RPCs (Cloud Trace BatchWriteSpans / OTLP collector
-// Export) before delegating the rest. The cloudtrace exporter's underlying
-// Google Cloud Go client (and any OTLP collector client) auto-creates a client
-// span for each export RPC once a global TracerProvider is registered; those
-// spans are themselves exported, producing a self-referential flood (307
-// BatchWriteSpans traces observed in chora-489812 on 2026-05-29) that buries
+// exporter's OWN outbound RPCs (the OTLP collector Export call, and — for
+// historical span names — the Cloud Trace BatchWriteSpans call) before
+// delegating the rest. The OTLP gRPC client auto-creates a client span for
+// each export RPC once a global TracerProvider is registered; those spans
+// are themselves exported, producing a self-referential flood that buries
 // real per-service traces.
 //
 // Why filter at the EXPORTER, not the sampler: otelgrpc assigns the gRPC client
 // span name AFTER sdktrace.Sampler.ShouldSample has already run, so a name-
-// matching sampler never observes "BatchWriteSpans" / "Export" and never fires.
-// By the time ExportSpans is invoked the span name is final, so the predicate
-// matches reliably. This stops the export loop at the source without disabling
-// any application tracing.
+// matching sampler never observes "Export" and never fires. By the time
+// ExportSpans is invoked the span name is final, so the predicate matches
+// reliably. This stops the export loop at the source without disabling any
+// application tracing.
 func newFilteringExporter(delegate sdktrace.SpanExporter) sdktrace.SpanExporter {
 	return &filteringExporter{delegate: delegate}
 }
@@ -423,8 +349,8 @@ func (e *filteringExporter) Shutdown(ctx context.Context) error {
 }
 
 // isTraceExportSpan matches the span names the trace export path emits for its
-// own RPCs: the Cloud Trace v2 BatchWriteSpans call and the OTLP collector
-// Export call.
+// own RPCs: the OTLP collector Export call (live) and the Cloud Trace v2
+// BatchWriteSpans call (retained for historical span names).
 func isTraceExportSpan(name string) bool {
 	return strings.Contains(name, "cloudtrace.v2.TraceService/BatchWriteSpans") ||
 		strings.Contains(name, "TraceService/Export")

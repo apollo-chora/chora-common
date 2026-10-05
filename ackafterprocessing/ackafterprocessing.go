@@ -1,5 +1,5 @@
 // Package ackafterprocessing wraps a user handler with ack-after-processing
-// semantics for Cloud Pub/Sub subscribers. It is the canonical Go
+// semantics for broker subscribers. It is the canonical Go
 // equivalent of the Python AckAfterProcessingSubscriber in
 // services/chora-closure-orchestrator/src/chora_closure_orchestrator/
 // adapter/pubsub/subscriber.py — added by W3 foundation Phase 4.5
@@ -10,9 +10,9 @@
 // Contract:
 //
 //	handler returns nil            → Ack
-//	handler returns *TransientError → Nack (transient — Pub/Sub redelivers
+//	handler returns *TransientError → Nack (transient — the broker redelivers
 //	                                 with exponential backoff)
-//	handler returns any other err   → Nack (terminal — Pub/Sub redelivers
+//	handler returns any other err   → Nack (terminal — the broker redelivers
 //	                                 until subscription.max_delivery_attempts
 //	                                 then routes to DLQ)
 //	handler panics                 → Nack (terminal — recovered + classified
@@ -34,7 +34,7 @@ import (
 	"log/slog"
 )
 
-// HandlerFunc processes a single Pub/Sub message. Receives the
+// HandlerFunc processes a single broker message. Receives the
 // envelope attributes (which carry tenant_id, event_id, saga_id, etc.)
 // and the binary payload. Return nil for success (Ack), a
 // *TransientError for transient failure (Nack + transient log), or any
@@ -42,9 +42,9 @@ import (
 type HandlerFunc func(ctx context.Context, attrs map[string]string, data []byte) error
 
 // Message is the broker-agnostic shape a subscriber sees. The real
-// adapter wraps *pubsub.Message (cloud.google.com/go/pubsub/v2); tests
+// adapter wraps the broker's message type (e.g. eventbus.Message); tests
 // wire a stub. Implementations MUST be safe to call Ack/Nack exactly
-// once; subsequent calls are no-ops (the GCP client enforces this).
+// once; subsequent calls are no-ops (the broker client enforces this).
 type Message interface {
 	Attributes() map[string]string
 	Data() []byte

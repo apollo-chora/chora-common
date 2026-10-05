@@ -1,7 +1,7 @@
 // Package log wraps zap with Chora-flavoured defaults: structured JSON
 // output, trace-correlated fields drawn from context, and a CHORA_LOG_LEVEL
 // env knob (debug / info / warn / error). Per CLAUDE.md §6, every log line
-// emitted from a service should correlate with the active Cloud Trace span
+// emitted from a service should correlate with the active trace span
 // via the traceparent stamped on context (see tracing package).
 //
 // This package intentionally does NOT export raw zap types — services depend

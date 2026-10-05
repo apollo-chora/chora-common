@@ -1,17 +1,18 @@
 // Package db is the shared pgxpool bootstrap helper for every Chora Go
-// service that talks to Cloud SQL Enterprise Plus.
+// service that talks to Postgres.
 //
 // Per CLAUDE.md §6 (no inline config) + .claude/skills/secrets-and-env:
 // services NEVER hard-code DSNs. They source them from one of:
 //
-//  1. CHORA_DB_DSN_SECRET_ID  — name of a Secret Manager secret whose
-//     latest version contains the connection string.
+//  1. CHORA_DB_DSN_SECRET_ID  — name of a secret (resolved via the
+//     env-backed secrets.Client) whose value contains the connection
+//     string.
 //  2. CHORA_DB_DSN            — direct DSN, dev-only fallback.
 //
 // This package centralises:
 //
-//   - DSN sourcing (Secret Manager → env)
-//   - DSN port rewrite (PgBouncer 6432 → Cloud SQL Auth Proxy 5432) for
+//   - DSN sourcing (secret → env)
+//   - DSN port rewrite (PgBouncer 6432 → direct Postgres 5432) for
 //     services that bypass PgBouncer until the sidecar lands
 //   - pgxpool resilience defaults (MaxConns=20, MinConns=5,
 //     MaxConnIdleTime=5m, HealthCheckPeriod=30s, MaxConnLifetime=1h)
@@ -20,7 +21,7 @@
 //
 // Resilience-priority directive (`feedback_resilience_priority`): the
 // pool is pre-warmed (Ping at boot) and the health-check loop is enabled
-// so dropped Cloud SQL connections recover transparently — a replacement
+// so dropped connections recover transparently — a replacement
 // pod sees the pool re-establish without external supervision.
 package db
 
@@ -66,7 +67,7 @@ type BootstrapOptions struct {
 	// when both are set (dev convenience).
 	DSN string
 
-	// SecretID is the Secret Manager secret name (e.g.
+	// SecretID is the secret name (e.g.
 	// `chora-dev-cloudsql-chora_identity-app_rw-dsn`). Resolved via
 	// SecretFetcher if DSN is empty.
 	SecretID string
@@ -78,7 +79,7 @@ type BootstrapOptions struct {
 	// RewriteFromPort, RewriteToPort — when non-zero, rewrite the DSN's
 	// port from the source to the target. Used until PgBouncer lands:
 	// stored DSNs point at 6432 (PgBouncer) but services bypass to 5432
-	// (Cloud SQL Auth Proxy).
+	// (direct Postgres).
 	RewriteFromPort int
 	RewriteToPort   int
 
@@ -86,7 +87,7 @@ type BootstrapOptions struct {
 	// DefaultPoolConfig().
 	PoolConfig PoolConfig
 
-	// AppName tags the connection for Cloud SQL Insights — e.g.
+	// AppName tags the connection for Postgres monitoring — e.g.
 	// "chora-identity@v0.1.0". Helpful for audit + slow-query analysis.
 	AppName string
 
@@ -104,7 +105,7 @@ type BootstrapOptions struct {
 	RuntimeParams map[string]string
 }
 
-// SecretFetcher is the resolver for Secret Manager secrets. Production
+// SecretFetcher is the resolver for secrets. Production
 // uses chora-common/secrets.Client; tests inject a stub map.
 type SecretFetcher interface {
 	GetSecret(ctx context.Context, name string) (string, error)
@@ -165,10 +166,10 @@ func Bootstrap(ctx context.Context, opts BootstrapOptions) (*pgxpool.Pool, error
 	}
 
 	// Pre-warm with retry-backoff. Per ATOM-1 §"Cold-start note" +
-	// `feedback_d6_resilience_first_class`: a fresh node's Cloud SQL
-	// Auth Proxy sidecar may not be reachable for the first ~500ms-2s
-	// post-schedule even though Secret Manager has already resolved.
-	// Mirrors the JWKS + Secret Manager backoff pattern at
+	// `feedback_d6_resilience_first_class`: a fresh node's Postgres
+	// sidecar may not be reachable for the first ~500ms-2s
+	// post-schedule even though secret resolution has already succeeded.
+	// Mirrors the retry-backoff pattern at
 	// chora-common/secrets/backoff.go (commit 4c50a1d5).
 	if err := pingWithBackoff(ctx, pool); err != nil {
 		pool.Close()
@@ -205,11 +206,10 @@ func resolveDSN(ctx context.Context, opts BootstrapOptions) (string, error) {
 	if opts.SecretFetcher == nil {
 		return "", fmt.Errorf("db.Bootstrap: SecretFetcher required when SecretID is set")
 	}
-	// Use the shared retry-backoff helper (mirrors JWKS pattern at
-	// chora-common/auth/identityplatform/identityplatform.go).
-	// Per E2E-INFRA-COLD-START §3b: Secret Manager occasionally returns
+	// Use the shared retry-backoff helper (secrets.FetchSecretWithBackoff).
+	// Per E2E-INFRA-COLD-START §3b: secret resolution occasionally returns
 	// codes.Unavailable / codes.DeadlineExceeded during cold start on a
-	// fresh node while Workload Identity Federation tokens propagate.
+	// fresh node while credential tokens propagate.
 	// The retry curve (6 attempts, ~30s budget) clears these transients
 	// before failing the pod boot.
 	dsn, err := secrets.FetchSecretWithBackoff(ctx, opts.SecretFetcher, opts.SecretID)
@@ -226,8 +226,8 @@ func resolveDSN(ctx context.Context, opts BootstrapOptions) (string, error) {
 // from `from` to `to`. If the DSN host has no port, or the port differs
 // from `from`, the DSN is returned unchanged. Empty input is rejected.
 //
-// Used by services bypassing PgBouncer (port 6432 in Secret Manager
-// DSNs) and connecting directly to the Cloud SQL Auth Proxy on 5432.
+// Used by services bypassing PgBouncer (port 6432 in stored
+// DSNs) and connecting directly to Postgres on 5432.
 func RewriteDSNPort(dsn string, from, to int) (string, error) {
 	if dsn == "" {
 		return "", errors.New("db: RewriteDSNPort: empty DSN")

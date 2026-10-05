@@ -1,18 +1,15 @@
-// Package secrets — retry-backoff helper for Secret Manager.
+// Package secrets — retry-backoff helper for secret resolution.
 //
 // This file is the §3b half of the E2E-INFRA-COLD-START remediation
 // (Infra option 1, accepted at commit `2292a9d1`). It mirrors the JWKS
-// retry-backoff pattern in
-// chora-common/auth/identityplatform/identityplatform.go
-// (refreshJWKSWithBackoff at commit ea45a7a9) for Secret Manager
-// AccessSecretVersion calls during cold start.
+// retry-backoff pattern historically used for key-endpoint calls.
 //
-// Rationale: a fresh node has not yet warmed the Workload Identity
-// Federation token cache + GCE metadata server proxy. The first
-// AccessSecretVersion on the boot path can return codes.Unavailable
+// Rationale: a fresh node has not yet warmed the credential
+// token cache + metadata proxy. The first secret access
+// on the boot path can return codes.Unavailable
 // (NAT remap), codes.DeadlineExceeded (cold metadata server), or
 // codes.Internal — all of which would clear after a single retry. A
-// naive single-shot AccessSecretVersion call surfaces these as a fatal
+// naive single-shot access surfaces these as a fatal
 // boot error.
 //
 // The helper retries up to retryAttempts times with exponential delay
@@ -38,10 +35,9 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-// Retry-backoff tuning — these mirror jwksRetry* in
-// chora-common/auth/identityplatform/identityplatform.go so the
-// platform has ONE backoff curve to reason about across cold-start
-// resilience surfaces. Total budget: 30s. Worst-case total sleeps:
+// Retry-backoff tuning — these mirror the platform's JWKS
+// retry curve so the platform has ONE backoff curve to reason about
+// across cold-start resilience surfaces. Total budget: 30s. Worst-case total sleeps:
 // 500ms + 1s + 2s + 4s + 8s = 15.5s, leaving headroom for ~5 RPC
 // round-trips inside the budget.
 const (

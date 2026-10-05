@@ -1,18 +1,15 @@
-// Package otel wires the OpenTelemetry SDK to emit traces directly to Cloud
-// Trace per CLAUDE.md (Tier 3 D13): "OTLP everywhere — every service emits
-// directly to Cloud Trace from day-1; no opt-in flags; no OTel Collector".
+// Package otel wires the OpenTelemetry SDK to emit traces via standard
+// OTLP/gRPC per CLAUDE.md (Tier 3 D13): "OTLP everywhere — every service
+// emits from day-1; no opt-in flags". The root compose runs an OTel
+// Collector at otel-collector:4317; services point at it through
+// OTEL_EXPORTER_OTLP_ENDPOINT.
 //
-// 2026-05-14 (Wave B / tracker #146): swapped the OTLP gRPC exporter for the
-// dedicated Cloud Trace exporter from GoogleCloudPlatform/opentelemetry-
-// operations-go. The previous wiring called otlptracegrpc.New with
-// WithInsecure() against telemetry.googleapis.com:443 — the TLS handshake
-// failed silently and every span was dropped. The cloudtrace exporter
-// handles TLS + ADC bearer-token auth natively, which is the
-// Google-recommended path for emitting from any Google-managed compute.
-//
-// Endpoint env vars (OTEL_EXPORTER_OTLP_ENDPOINT) are still honoured as a
-// no-op pass-through so deployment manifests don't have to change. When
-// unset (local dev), traces stream to stdout via stdouttrace.
+// 2026-10-05: HISTORY — the dedicated Cloud Trace exporter from
+// GoogleCloudPlatform/opentelemetry-operations-go was removed with the
+// platform's Google Cloud exit. The package now builds the standard
+// OTLP/gRPC exporter (otlptracegrpc) against OTEL_EXPORTER_OTLP_ENDPOINT;
+// when the endpoint is unset (local dev) traces stream to stdout via
+// stdouttrace, so startup never fails on trace wiring.
 package otel
 
 import (
@@ -24,9 +21,9 @@ import (
 	"strings"
 	"time"
 
-	cloudtrace "github.com/GoogleCloudPlatform/opentelemetry-operations-go/exporter/trace"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
 	"go.opentelemetry.io/otel/exporters/stdout/stdouttrace"
 	"go.opentelemetry.io/otel/propagation"
 	"go.opentelemetry.io/otel/sdk/resource"
@@ -35,9 +32,9 @@ import (
 )
 
 // exporterFactory builds a SpanExporter for the given endpoint hint.
-// Swapped out in tests via SwapExporterFactoryForTest so the cloudtrace
-// happy-path is exercised without needing real ADC + project. Default uses
-// the Cloud Trace exporter.
+// Swapped out in tests via SwapExporterFactoryForTest so the OTLP
+// happy-path is exercised without a live collector. Default uses
+// the OTLP/gRPC exporter.
 var exporterFactory ExporterFactory = defaultExporterFactory
 
 // Init wires the trace exporter and registers a global TracerProvider.
@@ -105,16 +102,14 @@ func Tracer(serviceName string) trace.Tracer { return otel.Tracer(serviceName) }
 // Exporter factory
 // -----------------------------------------------------------------------------
 
-// defaultExporterFactory routes to Cloud Trace when running against Google
-// infra (the common case) and stdout in dev. The OTEL_EXPORTER_OTLP_ENDPOINT
-// env var, when set, is recorded in the log line for operator debugging but
-// no longer changes the exporter — cloudtrace.New does its own project
-// discovery via ADC and the gRPC endpoint is fixed at cloudtrace.googleapis.com.
-// This is the documented Google-recommended path; see CLAUDE.md §1 +
-// project memory project_chora_gcp_stack.md.
+// defaultExporterFactory routes to the OTLP/gRPC exporter when
+// OTEL_EXPORTER_OTLP_ENDPOINT is set and stdout in dev. The endpoint is
+// passed to the exporter verbatim (host:port); the exporter dials
+// lazily, so construction never blocks or fails on an unreachable
+// collector.
 func defaultExporterFactory(ctx context.Context, endpoint, serviceName, version string) (sdktrace.SpanExporter, error) {
 	if isDevExport() {
-		log.Printf("otel: dev mode (OTEL_EXPORTER=stdout); spans -> stdout (service=%s version=%s)", serviceName, version)
+		log.Printf("otel: dev mode; spans -> stdout (service=%s version=%s)", serviceName, version)
 		exp, err := stdouttrace.New(stdouttrace.WithPrettyPrint())
 		if err != nil {
 			return nil, fmt.Errorf("stdouttrace: %w", err)
@@ -122,39 +117,27 @@ func defaultExporterFactory(ctx context.Context, endpoint, serviceName, version 
 		return exp, nil
 	}
 
-	projectID := strings.TrimSpace(os.Getenv("GOOGLE_CLOUD_PROJECT"))
-	log.Printf("otel: cloudtrace exporter (project=%s endpoint_hint=%s) service=%s version=%s",
-		projectIDForLog(projectID), endpoint, serviceName, version)
-
-	opts := []cloudtrace.Option{cloudtrace.WithContext(ctx)}
-	if projectID != "" {
-		opts = append(opts, cloudtrace.WithProjectID(projectID))
-	}
-
-	exp, err := cloudtrace.New(opts...)
+	log.Printf("otel: otlp exporter (endpoint=%s) service=%s version=%s",
+		endpoint, serviceName, version)
+	exp, err := otlptracegrpc.New(ctx,
+		otlptracegrpc.WithEndpoint(endpoint),
+		otlptracegrpc.WithInsecure(),
+	)
 	if err != nil {
-		return nil, fmt.Errorf("cloudtrace: %w", err)
+		return nil, fmt.Errorf("otlptracegrpc: %w", err)
 	}
 	return exp, nil
 }
 
-// isDevExport returns true when the operator has explicitly opted into stdout
-// export (OTEL_EXPORTER=stdout) or when no GOOGLE_APPLICATION_CREDENTIALS /
-// GOOGLE_CLOUD_PROJECT is detectable AND OTEL_EXPORTER_OTLP_ENDPOINT is
-// unset. The historical dev fallback (unset endpoint -> stdout) is preserved
-// for local `go run`.
+// isDevExport returns true when the operator has explicitly opted into
+// stdout export (OTEL_EXPORTER=stdout) or when OTEL_EXPORTER_OTLP_ENDPOINT
+// is unset (local dev). The historical dev fallback (unset endpoint ->
+// stdout) is preserved for local `go run`.
 func isDevExport() bool {
 	if strings.EqualFold(strings.TrimSpace(os.Getenv("OTEL_EXPORTER")), "stdout") {
 		return true
 	}
-	// Mirror historical behaviour: if neither the endpoint nor ADC project
-	// is set, we're almost certainly on a developer laptop without a key.
-	if os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT") == "" &&
-		os.Getenv("GOOGLE_CLOUD_PROJECT") == "" &&
-		os.Getenv("GOOGLE_APPLICATION_CREDENTIALS") == "" {
-		return true
-	}
-	return false
+	return strings.TrimSpace(os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT")) == ""
 }
 
 func projectIDForLog(p string) string {

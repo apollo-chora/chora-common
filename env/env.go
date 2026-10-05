@@ -2,7 +2,7 @@
 //
 // Per CLAUDE.md §6 ("No inline config") + memory feedback_no_inline_config:
 // all URLs, secrets, third-party adapter configs, and stub endpoints MUST be
-// read from env vars (sourced from Terraform / GCP Secret Manager). Source
+// read from env vars (sourced from Terraform / a secret store). Source
 // code MUST NOT contain inlined configuration.
 //
 // This package gives services three ergonomic helpers:

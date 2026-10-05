@@ -38,8 +38,6 @@ var envKeysObs = []string{
 	"OTEL_TRACES_SAMPLER",
 	"OTEL_TRACES_SAMPLER_ARG",
 	"OTEL_RESOURCE_ATTRIBUTES",
-	"GOOGLE_CLOUD_PROJECT",
-	"GOOGLE_APPLICATION_CREDENTIALS",
 	"DEPLOYMENT_ENVIRONMENT",
 	"CLOUD_REGION",
 }
@@ -498,7 +496,7 @@ func TestSlogHandler_TenantAndGCIDPropagation(t *testing.T) {
 }
 
 // -----------------------------------------------------------------------------
-// Wave B (tracker #146) — cloudtrace exporter path coverage
+// OTLP exporter path coverage
 // -----------------------------------------------------------------------------
 
 func TestInitOTLP_ExplicitStdoutMode(t *testing.T) {
@@ -506,7 +504,6 @@ func TestInitOTLP_ExplicitStdoutMode(t *testing.T) {
 	defer envMuObs.Unlock()
 	snapshotEnvObs(t)
 	t.Setenv("OTEL_EXPORTER", "stdout")
-	t.Setenv("GOOGLE_CLOUD_PROJECT", "chora-489812")
 
 	shutdown, err := observability.InitOTLP("chora-stdout-mode", "v0.0.0")
 	if err != nil {
@@ -515,16 +512,15 @@ func TestInitOTLP_ExplicitStdoutMode(t *testing.T) {
 	_ = shutdown()
 }
 
-// TestInitOTLP_FactorySwap exercises the cloudtrace path proof. The previous
-// wiring would NEVER hit this branch because the gRPC client construction was
-// inline. With the factory hook, we now have a deterministic regression for
-// Wave B.
+// TestInitOTLP_FactorySwap exercises the OTLP path proof: with the
+// endpoint set, the factory is invoked with the endpoint + service name
+// threaded through. The factory hook gives a deterministic regression
+// without needing a live collector.
 func TestInitOTLP_FactorySwap(t *testing.T) {
 	envMuObs.Lock()
 	defer envMuObs.Unlock()
 	snapshotEnvObs(t)
-	t.Setenv("OTEL_EXPORTER_OTLP_ENDPOINT", "telemetry.googleapis.com:443")
-	t.Setenv("GOOGLE_CLOUD_PROJECT", "chora-489812")
+	t.Setenv("OTEL_EXPORTER_OTLP_ENDPOINT", "otel-collector:4317")
 
 	var (
 		called      bool
@@ -541,7 +537,7 @@ func TestInitOTLP_FactorySwap(t *testing.T) {
 	)
 	defer restore()
 
-	shutdown, err := observability.InitOTLP("chora-cloudtrace-test", "v0.0.0")
+	shutdown, err := observability.InitOTLP("chora-otlp-test", "v0.0.0")
 	if err != nil {
 		t.Fatalf("InitOTLP: %v", err)
 	}
@@ -550,10 +546,10 @@ func TestInitOTLP_FactorySwap(t *testing.T) {
 	if !called {
 		t.Fatal("factory not called — branch unreached")
 	}
-	if gotEndpoint != "telemetry.googleapis.com:443" {
+	if gotEndpoint != "otel-collector:4317" {
 		t.Errorf("endpoint hint mismatch: got %q", gotEndpoint)
 	}
-	if gotName != "chora-cloudtrace-test" {
+	if gotName != "chora-otlp-test" {
 		t.Errorf("service name not threaded: %q", gotName)
 	}
 }
@@ -562,7 +558,7 @@ func TestInitOTLP_FactoryErrorBubbles(t *testing.T) {
 	envMuObs.Lock()
 	defer envMuObs.Unlock()
 	snapshotEnvObs(t)
-	t.Setenv("GOOGLE_CLOUD_PROJECT", "chora-489812")
+	t.Setenv("OTEL_EXPORTER_OTLP_ENDPOINT", "otel-collector:4317")
 
 	restore := observability.SwapExporterFactoryForTest(
 		func(ctx context.Context, endpoint, name, version string) (sdktrace.SpanExporter, error) {
