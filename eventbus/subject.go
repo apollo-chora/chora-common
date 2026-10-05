@@ -58,13 +58,14 @@ var knownDomains = map[string]struct{}{
 	"sharing":     {},
 	"delivery":    {},
 	"a2a":         {},
-	// 6 supporting
+	// 7 supporting
 	"identity":      {},
 	"tenancy":       {},
 	"governance":    {},
 	"observability": {},
 	"notifications": {},
 	"ai_kernel":     {},
+	"payments":      {},
 	// Cross-cutting saga namespace (no owning DB; orchestrator-emitted).
 	"closure": {},
 }
