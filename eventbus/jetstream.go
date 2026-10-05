@@ -127,7 +127,7 @@ func (b *JetStreamBus) Subscribe(ctx context.Context, cfg ConsumerConfig, handle
 		}
 	}
 	cons, err := b.js.CreateOrUpdateConsumer(ctx, b.stream, jetstream.ConsumerConfig{
-		Durable:       cfg.Name,
+		Durable:       SanitizeConsumerName(cfg.Name),
 		FilterSubject: cfg.Subject,
 		AckPolicy:     jetstream.AckExplicitPolicy,
 		MaxDeliver:    maxDeliver,

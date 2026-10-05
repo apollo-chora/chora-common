@@ -54,3 +54,22 @@ func TestValidateSubjectRejectsUnknownDomain(t *testing.T) {
 		t.Error("expected an unknown domain to be rejected")
 	}
 }
+
+// TestSanitizeConsumerName covers the Pub/Sub-era subscription ids that every
+// service passes as ConsumerConfig.Name. NATS rejects a durable name
+// containing '.', so an unsanitized id silently disabled the subscriber.
+func TestSanitizeConsumerName(t *testing.T) {
+	cases := []struct{ in, want string }{
+		{"chora-observability.observability-agent_decision-logged", "chora-observability-observability-agent_decision-logged"},
+		{"chora-tenancy.closure-pseudonymise", "chora-tenancy-closure-pseudonymise"},
+		{"already-safe_name-1", "already-safe_name-1"},
+		{"has space", "has-space"},
+		{"a/b\\c*d>e", "a-b-c-d-e"},
+		{"", ""},
+	}
+	for _, tc := range cases {
+		if got := SanitizeConsumerName(tc.in); got != tc.want {
+			t.Errorf("SanitizeConsumerName(%q) = %q, want %q", tc.in, got, tc.want)
+		}
+	}
+}

@@ -363,3 +363,35 @@ func TestJetStreamIntegration_SameIdempotencyKeyDifferentEventIDs(t *testing.T) 
 		return streamMsgs(t, js, events) == 2
 	})
 }
+
+// TestJetStreamIntegration_DottedConsumerNameIsAccepted reproduces the real
+// failure: every service passes its Pub/Sub-era subscription id (which contains
+// '.') as ConsumerConfig.Name, and NATS rejects that as a durable name. Unit
+// tests missed it because they inject stub subscribers, and the other
+// integration tests use dot-free names.
+func TestJetStreamIntegration_DottedConsumerNameIsAccepted(t *testing.T) {
+	url, shutdown := runEmbeddedNATS(t)
+	defer shutdown()
+	bus, _, _, _ := newTestBus(t, url)
+
+	const subject = "chora.observability.token_usage.recorded.v1"
+	got := make(chan Message, 1)
+	if err := bus.Subscribe(context.Background(), ConsumerConfig{
+		Name:    "chora-observability.observability-agent_decision-logged",
+		Subject: subject,
+		Backoff: []time.Duration{50 * time.Millisecond},
+	}, func(_ context.Context, m Message) error {
+		got <- m
+		return nil
+	}); err != nil {
+		t.Fatalf("Subscribe with a dotted consumer name failed: %v", err)
+	}
+	if err := bus.Publish(context.Background(), subject, fullEnvelope(), []byte("x")); err != nil {
+		t.Fatalf("publish: %v", err)
+	}
+	select {
+	case <-got:
+	case <-time.After(10 * time.Second):
+		t.Fatal("dotted-name subscriber never received the message")
+	}
+}

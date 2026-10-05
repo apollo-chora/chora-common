@@ -17,6 +17,7 @@ package eventbus
 
 import (
 	"context"
+	"strings"
 	"time"
 
 	"github.com/apollo-chora/chora-common/envelope"
@@ -86,4 +87,29 @@ type Bus interface {
 // deliberately NOT run through ValidateSubject.
 func DLQSubject(subject string) string {
 	return "_dlq." + subject
+}
+
+// SanitizeConsumerName converts a logical subscription id into a durable
+// consumer name that NATS accepts. NATS durable names may not contain
+// whitespace, '.', '*', '>', path separators, or non-printable characters.
+//
+// This matters because every service preserved its Pub/Sub subscription ids
+// verbatim as ConsumerConfig.Name, and those ids are dotted
+// ("chora-observability.observability-agent_decision-logged"). Passing one
+// straight through makes CreateOrUpdateConsumer fail with
+// `nats: invalid consumer name`, which silently disables the subscriber —
+// it surfaced only when a service was actually run, because unit tests inject
+// stub subscribers. Every character outside [A-Za-z0-9_-] becomes '-'.
+func SanitizeConsumerName(name string) string {
+	var b strings.Builder
+	b.Grow(len(name))
+	for _, r := range name {
+		switch {
+		case r >= 'a' && r <= 'z', r >= 'A' && r <= 'Z', r >= '0' && r <= '9', r == '-', r == '_':
+			b.WriteRune(r)
+		default:
+			b.WriteByte('-')
+		}
+	}
+	return b.String()
 }
