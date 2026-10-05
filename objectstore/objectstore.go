@@ -1,4 +1,4 @@
-// Package objectstore is the GCP-free, S3-compatible blob storage client for
+// Package objectstore is the cloud-neutral, S3-compatible blob storage client for
 // the chora platform. HISTORY: it replaced the former Google Cloud Storage
 // client (cloud.google.com/go/storage); the package is now a small,
 // provider-neutral contract that works against MinIO locally and any

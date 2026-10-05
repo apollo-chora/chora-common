@@ -1,7 +1,7 @@
 // Package secrets unit tests — RED phase first.
 //
 // The lazy client wraps the official Secret Manager SDK. We only test
-// the input-validation surface here; live calls require a real GCP
+// the input-validation surface here; live calls require a real cloud
 // project and are exercised by service-level integration tests.
 package secrets
 

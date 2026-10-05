@@ -75,7 +75,7 @@ type BuildOpts struct {
 	// in the topic name). Must be ≥ 1.
 	SchemaVersion int32
 
-	// SourceProject is the GCP project the publisher runs in
+	// SourceProject is the project the publisher runs in
 	// (e.g. chora-content, chora-delivery, chora-489812, chora-golden).
 	SourceProject string
 

@@ -15,7 +15,7 @@
 //   - KeyManager port abstracts the runtime backend (Cloud KMS in production,
 //     in-memory deterministic stub for tests).
 //   - InMemoryKeyManager is the test-only adapter — it uses HKDF-style HMAC
-//     wrapping (deterministic) so unit tests never touch real GCP. Production
+//     wrapping (deterministic) so unit tests never touch a real cloud KMS. Production
 //     swaps in CloudKMSKeyManager (Tier 3 work; thin gRPC client over
 //     cloudkms.v1.KeyManagementService).
 //   - Crypto-shred semantics: DeleteMasterKey marks the in-memory master as
@@ -71,7 +71,7 @@ var (
 // MasterKeyRef — composite of KMS path components.
 // ─────────────────────────────────────────────────────────────────────────────
 
-// MasterKeyRef captures the GCP Cloud KMS resource path components for a
+// MasterKeyRef captures the cloud KMS resource path components for a
 // per-tenant CMEK master key. The full resource name is composable from the
 // fields and matches the format emitted by the chora-infra terraform module.
 //

@@ -1,7 +1,7 @@
 // devexport_internal_test.go — unit tests for the stdout-dev-mode
 // fallback heuristic used by defaultExporterFactory.
 //
-// 2026-10-05: the heuristic lost its GCP project/metadata legs with the
+// 2026-10-05: the heuristic lost its project/metadata legs with the
 // Google Cloud exit. It is now purely env-driven: OTEL_EXPORTER=stdout
 // opts in explicitly, and an unset OTEL_EXPORTER_OTLP_ENDPOINT means
 // local dev. Sequential (not parallel): t.Setenv mutates process env.

@@ -26,7 +26,7 @@
 // A missing OR empty variable yields an explicit ErrSecretNotFound — the
 // resolver NEVER returns an empty string for an unresolved secret.
 //
-// The GCP Secret Manager implementation was removed (2026-10-05): the
+// The managed cloud secret-manager implementation was removed (2026-10-05): the
 // platform is broker-neutral and the cloud SDK tainted every importing
 // service with Google Cloud dependencies. The exported API shape is
 // unchanged so callers (db.Bootstrap via SecretFetcher, service mains)

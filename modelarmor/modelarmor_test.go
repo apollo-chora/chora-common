@@ -90,7 +90,7 @@ func TestNewScreener_RejectsEmptyLocation(t *testing.T) {
 	}
 }
 
-// TestNewScreener_ReturnsLocalSubstitute pins the post-GCP-exit
+// TestNewScreener_ReturnsLocalSubstitute pins the post-cloud-exit
 // construction contract: the compatibility constructor returns the
 // local substitute, which satisfies Screener.
 func TestNewScreener_ReturnsLocalSubstitute(t *testing.T) {
