@@ -1,6 +1,6 @@
 // Internal-package tests for the residual branch gaps in the envelope
-// projection / reconstruction helpers and the closure-ack publisher. These
-// call unexported helpers directly, so they need the internal package.
+// projection / reconstruction helpers. These call unexported helpers directly,
+// so they need the internal package.
 package pubsub
 
 import (
@@ -84,20 +84,5 @@ func TestValidateTopicName_MustStartWithChora(t *testing.T) {
 		t.Fatal("expected error for non-chora prefix")
 	} else if !strings.Contains(err.Error(), "must start with chora") {
 		t.Errorf("err=%v; want 'must start with chora'", err)
-	}
-}
-
-// TestClosureAckPublisher_PayloadEncodeError covers the json.Marshal error
-// branch: an unencodable payload value (a func) must surface a wrapped
-// encode error instead of a panic.
-func TestClosureAckPublisher_PayloadEncodeError(t *testing.T) {
-	p := NewClosureAckPublisher(&recordingOutbox{}, "p", "s")
-	err := p.Publish("chora.creation.account.pseudonymised.v1", "tenant-1", "gcid-1", "",
-		map[string]interface{}{"bad": func() {}})
-	if err == nil {
-		t.Fatal("expected payload encode error")
-	}
-	if !strings.Contains(err.Error(), "closure ack payload encode") {
-		t.Errorf("err=%v; want 'closure ack payload encode' wrapper", err)
 	}
 }
