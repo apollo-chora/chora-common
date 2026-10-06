@@ -1,102 +1,99 @@
 # chora-common
 
-Shared Go library consolidating cross-cutting patterns used across the 14 Chora Go services.
+## About
 
-> Aligned with **Architecture Review locked 2026-05-07**. Source: `docs/architecture-review-inputs-2026-05-07.md` Tier 2 + Tier 3 + memory `feedback_no_inline_config`.
+`chora-common` is the shared Go module for cross-cutting infrastructure used by Chora services. It provides packages for configuration loading, OpenTelemetry and W3C trace propagation, structured logging and typed errors, event envelopes and NATS JetStream transport, transactional outbox handling, idempotency, HTTP and gRPC clients, object storage, authentication metadata, and database-related helpers. The module is imported by services that need these primitives rather than run as a standalone application.
 
-## Purpose
+## Quick start
 
-Every Chora Go service repeats the same plumbing:
+Requires Go 1.26.1, as declared in `go.mod`.
 
-- Loading + validating env vars
-- Wiring OTLP traces via the OTel Collector
-- Propagating W3C `traceparent` across HTTP boundaries
-- Structured logging
-- Typed errors with codes
-- Building event envelopes per CLAUDE.md §6
-- Calling other services with retry + timeout
+Clone the repository:
 
-This module extracts those into a single dependency. Services opt-in by importing `github.com/apollo-chora/chora-common`.
+```sh
+git clone https://github.com/apollo-chora/chora-common.git
+cd chora-common
+```
 
-**Library is OPT-IN.** Existing services were not refactored to use it — that work is deferred to a follow-up task.
+Download dependencies, build all packages, and run the test suite:
 
-## Packages
+```sh
+go mod download
+go build ./...
+go test ./...
+```
 
-| Package | Purpose |
-|---|---|
-| [`env`](./env) | `MustGet` / `GetOrDefault` / `LoadStruct` — fail-fast env loading per `feedback_no_inline_config` |
-| [`otel`](./otel) | OTLP trace setup (`Init`, `Tracer`) via `OTEL_EXPORTER_OTLP_ENDPOINT`; falls back to stdout in dev |
-| [`tracing`](./tracing) | `Middleware()` (Chi-compat) + `Inject(req)` + ctx helpers (traceparent / tenant_id / gcid) |
-| [`log`](./log) | zap-based structured logger with `WithContext` for trace correlation |
-| [`errors`](./errors) | `chora.Error` typed error (code + reason + traceID) |
-| [`envelope`](./envelope) | `Build` + `Validate` + `ValidateStrict` + `CanonicaliseImdaDimension` for the mandatory event envelope (per CLAUDE.md §6 + ADR-141) |
-| [`eventbus`](./eventbus) | Schema-validating Publisher contract + InMemoryBus test fixture + ReorderBuffer + JetStream adapter (NATS) |
-| [`outbox`](./outbox) | Transactional outbox primitive: atomic state-write + outbox-row write; long-running Relay drains pending rows to the bus with reorder buffer + DLQ + retry |
-| [`idempotent`](./idempotent) | Idempotency-key store for at-least-once subscribers: `Process(ctx, key, ttl, fn)` + Postgres-backed `Mark`/`Seen`/`CleanupExpired` |
-| [`secrets`](./secrets) | Env-backed secret resolver (`Client`, `FetchSecretWithBackoff`) — no cloud SDK |
-| [`modelarmor`](./modelarmor) | Guardrail `Screener` port + local regex/deny-list substitute (`LocalScreener`) + `StubScreener` |
-| [`httpclient`](./httpclient) | Pre-configured HTTP client with retry, timeout, and traceparent injection |
-| [`tests`](./tests) | Cross-package integration tests (outbox round-trip + chaos resume, env→envelope flow) |
+The repository's CI also runs `gofmt`, `go mod tidy` consistency checks, `go vet ./...`, and `go test ./...`.
+
+Use the module from another Go project with its module path:
+
+```sh
+go get github.com/apollo-chora/chora-common
+```
 
 ## Usage
 
-### Bootstrap a service
+The module is organized as independent packages. Import only the packages a service needs.
+
+| Package | Purpose |
+| --- | --- |
+| `env` | Read required and optional environment variables and populate tagged string configuration structs. |
+| `otel` | Initialize the global OpenTelemetry tracer provider and export traces through OTLP/gRPC, with stdout export when no endpoint is configured. |
+| `tracing` | W3C `traceparent` propagation, HTTP middleware, request injection, and tenant/GCID context helpers. |
+| `observability` | Shared OTel helpers for spans, HTTP and gRPC propagation, event-envelope trace context, AI span attributes, and structured logging. |
+| `log` | Structured logging built on Zap, including context-aware fields. |
+| `errors` | `chora.Error` with a machine-readable code, human-readable reason, optional trace ID, and wrapped cause. |
+| `envelope` | Build and validate the canonical Chora event envelope, including UUIDv7 event IDs, trace context, source metadata, and IMDA labels. |
+| `eventbus` | Broker-neutral publisher/handler contracts, an in-memory test bus, and a NATS JetStream implementation with durable consumers, retry, and DLQ handling. |
+| `outbox` | Transactional outbox recording plus a relay that claims pending rows, retries publication, supports reorder buffering, and marks exhausted rows as dead-lettered. |
+| `idempotent` | Idempotency-key processing and PostgreSQL-backed storage for at-least-once subscribers. |
+| `httpclient` | HTTP client with a 10-second default timeout, bounded retries on network errors and 5xx responses, exponential backoff, and trace propagation. |
+| `grpcconn` | gRPC dial/server option helpers with keepalive settings. |
+| `objectstore` | S3-compatible object storage client for Put, Get, Delete, Exists, and presigned GET operations. |
+| `secrets` | Environment-backed secret resolution and retry/backoff helpers. |
+| `modelarmor` | Guardrail screener interfaces, local screening, and test stubs. |
+| `rls` | PostgreSQL row-level-security session helpers and validation for tenant, GCID, and role identifiers. |
+| `durabilityguard` | Boot-time classification of wired adapters as durable, in-memory, or unknown, with report or enforce modes. |
+| `auth/chorasession` | Validation of Chora session JWTs. |
+| `auth/servicemesh` | Canonical HTTP headers and middleware for Chora GCID, tenant, and role metadata propagation. |
+| `agentengine` | Client support for hosted Chora reasoning-engine resources, including authenticated HTTP/SSE interactions. |
+| `dek` | Per-user data-encryption-key lifecycle types and encryption helpers. |
+| `uiprefs` | Shared UI preference vocabularies such as dashboard wrapper keys. |
+
+### Environment configuration
+
+The `env` package supports required and defaulted string fields:
 
 ```go
-package main
-
-import (
-    "context"
-
-    chenv "github.com/apollo-chora/chora-common/env"
-    chlog "github.com/apollo-chora/chora-common/log"
-    chotel "github.com/apollo-chora/chora-common/otel"
-)
-
 type Config struct {
     Port  string `env:"CHORA_PORT,default=8080"`
     DBURL string `env:"CHORA_DB_URL,required"`
 }
 
-func main() {
-    var cfg Config
-    if err := chenv.LoadStruct(&cfg); err != nil {
-        panic(err)
-    }
-    logger := chlog.New("chora-creation")
-    defer logger.Sync()
-
-    ctx := context.Background()
-    shutdown, err := chotel.Init(ctx, "chora-creation", "v0.1.0")
-    if err != nil {
-        logger.Error("otel init", chlog.Err(err))
-        return
-    }
-    defer shutdown(ctx)
-
-    // ... wire chi router, mount tracing.Middleware(), serve on cfg.Port
+var cfg Config
+if err := env.LoadStruct(&cfg); err != nil {
+    return err
 }
 ```
 
-### Wire the HTTP middleware
+`env.MustGet("NAME")` fails fast when a value is missing or empty. `env.GetOrDefault("NAME", "fallback")` returns the environment value when present and otherwise uses the supplied fallback.
+
+### HTTP tracing
+
+Mount the shared middleware on a `net/http` or Chi router:
 
 ```go
-import (
-    "github.com/go-chi/chi/v5"
-    "github.com/apollo-chora/chora-common/tracing"
-)
-
 r := chi.NewRouter()
 r.Use(tracing.Middleware())
 ```
 
-### Build a event envelope
+The middleware extracts inbound W3C trace context, starts a server span, attaches tenant and GCID attributes when present, and propagates trace context to downstream handlers and the response. Use `tracing.Inject(req)` on outbound requests.
+
+### Event envelopes
+
+Build an envelope from the request context and service metadata:
 
 ```go
-import (
-    "github.com/apollo-chora/chora-common/envelope"
-)
-
 env := envelope.Build(ctx, envelope.BuildOpts{
     EventType:     "atom_published",
     SchemaVersion: 1,
@@ -106,43 +103,146 @@ env := envelope.Build(ctx, envelope.BuildOpts{
 if err := envelope.Validate(env); err != nil {
     return err
 }
-// ... marshal to chora-contracts proto, publish to chora.creation.atom.published.v1
 ```
 
-### Call another service
+`envelope.ValidateStrict` additionally enforces the canonical IMDA dimension vocabulary. The builder derives tenant and trace information from the context and generates a UUIDv7 event ID.
+
+### NATS JetStream event bus
+
+Use the JetStream implementation when the service has a provisioned `CHORA_EVENTS` stream:
 
 ```go
-import (
-    chenv "github.com/apollo-chora/chora-common/env"
-    "github.com/apollo-chora/chora-common/httpclient"
-)
-
-base := chenv.MustGet("CHORA_BFF_GATEWAY_URL") // no inline config
-c, err := httpclient.New(base)
-// c.Get(ctx, "/health") — traceparent auto-propagated
+bus, err := eventbus.NewJetStream(eventbus.JetStreamConfig{
+    URL: "nats://nats:4222",
+})
+if err != nil {
+    return err
+}
+defer bus.Close()
 ```
 
-## Conventions enforced
+The default stream name is `CHORA_EVENTS`. `Publish` validates the subject and envelope and places the envelope metadata in NATS headers. Consumers use durable JetStream consumers; successful handlers are acknowledged, failed handlers are retried up to the configured delivery limit, and exhausted messages are sent to the DLQ.
 
-- **No inline config** — every URL/secret/topic name MUST flow through env (per `feedback_no_inline_config`). The httpclient panics on empty baseURL.
-- **OTLP everywhere** — `otel.Init` is mandatory in every service `main`.
-- **Trace context across the bus** — `envelope.Build` auto-fills `traceparent` from ctx; `Validate` rejects envelopes missing it.
-- **TDD** — every public function has table-driven tests in `*_test.go`.
+For unit tests and local in-process wiring:
 
-## Testing
+```go
+bus := eventbus.NewInMemoryBus(
+    eventbus.WithSynchronousDelivery(),
+)
+```
+
+### Transactional outbox
+
+Record a domain event through `outbox.Outbox` inside the same database transaction as the domain write:
+
+```go
+o := outbox.NewWithRecorder(recorder)
+
+err := o.Publish(ctx, tx, outbox.PublishOpts{
+    AggregateType: "atom",
+    AggregateID:   atomID,
+    EventType:     "atom.created.v1",
+    Topic:         "chora.creation.atom.created.v1",
+    Payload:       payload,
+    Envelope:      env,
+})
+if err != nil {
+    return err
+}
+```
+
+The associated `Relay` claims pending rows and publishes them through the configured `Publisher`. The default relay configuration uses batches of 100, a 100 ms poll interval, a maximum of five retries, exponential backoff, and an optional reorder window.
+
+### HTTP service clients
+
+Create an `httpclient.Client` with a base URL sourced from service configuration:
+
+```go
+client, err := httpclient.New(baseURL)
+if err != nil {
+    return err
+}
+
+resp, err := client.Get(ctx, "/health")
+if err != nil {
+    return err
+}
+defer resp.Body.Close()
+```
+
+The client defaults to a 10-second timeout and two retries. It retries network failures and HTTP 5xx responses, but not 4xx responses or context cancellation.
+
+### S3-compatible object storage
+
+Configure the object store from environment variables:
+
+```go
+store, err := objectstore.New(objectstore.ConfigFromEnv())
+if err != nil {
+    return err
+}
+defer store.Close()
+```
+
+`ConfigFromEnv` reads `S3_ENDPOINT`, `S3_ACCESS_KEY_ID` or the legacy `S3_ACCESS_KEY`, `S3_SECRET_ACCESS_KEY` or `S3_SECRET_KEY`, `S3_REGION`, `S3_BUCKET`, and `S3_FORCE_PATH_STYLE`. The default signing region is `us-east-1`, path-style addressing defaults to enabled, and non-streaming operations use a 30-second timeout by default.
+
+### Service-mesh identity propagation
+
+Convert identity claims to the canonical mesh headers:
+
+```go
+headers := servicemesh.MarshalToHeaders(servicemesh.MeshClaims{
+    GCID:     gcid,
+    TenantID: tenantID,
+    Roles:    roles,
+})
+```
+
+On the receiving side, use `servicemesh.Middleware` to attach claims to the request context, or `servicemesh.RequireClaims` to reject requests that lack both GCID and tenant ID.
+
+## Development
+
+Run the repository checks locally:
+
+```sh
+gofmt -l .
+go mod tidy
+go vet ./...
+go test ./...
+```
+
+For coverage:
 
 ```sh
 go test ./... -coverprofile=cover.out
 go tool cover -func=cover.out
 ```
 
-Coverage gate: 85% (domain). Current: 91.4% total.
+The package tree is organized by capability:
 
-## Dependency position
+```text
+env/                    Environment configuration helpers
+otel/                   OpenTelemetry SDK setup
+tracing/                W3C trace-context propagation and HTTP middleware
+observability/          Shared tracing, logging, HTTP, gRPC, and event helpers
+log/                    Structured logging
+errors/                 Typed Chora errors
+envelope/               Canonical event envelope
+eventbus/               In-memory and NATS JetStream event bus
+outbox/                 Transactional outbox and relay
+idempotent/             Idempotency processing and PostgreSQL store
+httpclient/             Retrying outbound HTTP client
+grpcconn/               gRPC connection and keepalive helpers
+objectstore/            S3-compatible object storage
+secrets/                Environment-backed secret helpers
+modelarmor/             Guardrail ports and local/test implementations
+rls/                    PostgreSQL row-level-security helpers
+durabilityguard/        Runtime durability checks
+auth/                   Chora session and service-mesh authentication helpers
+agentengine/            Hosted reasoning-engine client
+dek/                    Data-encryption-key lifecycle
+uiprefs/                Shared UI preference contracts
+tests/                  Cross-package integration tests
+```
 
-This module is a **leaf**: it depends only on vendor-neutral libraries
-(OpenTelemetry, zap, pgx, NATS, AWS S3 SDK) — no Google Cloud SDKs, no
-Chora-internal packages. Any service can adopt it without
-circular-dependency concerns.
-
-Services depend on this lib via `go.work` (workspace mode) or via published module path once tagged.
+The repository contains no service entrypoint. Build outputs are produced from the packages themselves, and the CI workflow runs formatting, module-consistency, vet, and test checks on every push and pull request targeting `main`.
