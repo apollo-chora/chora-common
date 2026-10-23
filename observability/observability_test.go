@@ -23,6 +23,7 @@ import (
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/propagation"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
+	"go.opentelemetry.io/otel/sdk/trace/tracetest"
 	"go.opentelemetry.io/otel/trace"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
@@ -237,6 +238,40 @@ func TestHTTPMiddleware_GeneratesTraceparentWhenMissing(t *testing.T) {
 	handler.ServeHTTP(rec, req)
 	if rec.Header().Get("traceparent") == "" {
 		t.Error("expected response traceparent header")
+	}
+}
+
+// T1.11 (the kiosk): the observability re-export must carry the option — a
+// path named in WithoutSpanFor reaches the handler with no span, while any
+// other path still writes one.
+func TestHTTPMiddleware_WithoutSpanForSkipsOnlyThosePaths(t *testing.T) {
+	rec := tracetest.NewSpanRecorder()
+	tp := sdktrace.NewTracerProvider(sdktrace.WithSpanProcessor(rec))
+	prev := otel.GetTracerProvider()
+	otel.SetTracerProvider(tp)
+	t.Cleanup(func() {
+		otel.SetTracerProvider(prev)
+		_ = tp.Shutdown(context.Background())
+	})
+
+	reached := 0
+	next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { reached++ })
+	probe := func(h http.Handler, p string) {
+		h.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, p, nil))
+	}
+
+	h := observability.HTTPMiddleware(observability.WithoutSpanFor("/healthz"))(next)
+	probe(h, "/healthz")
+	if reached != 1 {
+		t.Fatalf("the health probe reached the handler %d times, want 1", reached)
+	}
+	if n := len(rec.Ended()); n != 0 {
+		t.Fatalf("the health probe wrote %d spans, want 0", n)
+	}
+
+	probe(h, "/api/atoms/x")
+	if n := len(rec.Ended()); n != 1 {
+		t.Fatalf("a real route wrote %d spans, want 1", n)
 	}
 }
 

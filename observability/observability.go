@@ -513,8 +513,13 @@ func SetAISpanAttributes(span trace.Span, a AIAttrs) {
 
 // HTTPMiddleware re-exports the tracing.Middleware so services importing only
 // chora-common/observability get the full set in one package.
-func HTTPMiddleware() func(next http.Handler) http.Handler {
-	return tracing.Middleware()
+func HTTPMiddleware(opts ...tracing.MiddlewareOption) func(next http.Handler) http.Handler {
+	return tracing.Middleware(opts...)
+}
+
+// WithoutSpanFor re-exports tracing.WithoutSpanFor (T1.11).
+func WithoutSpanFor(paths ...string) tracing.MiddlewareOption {
+	return tracing.WithoutSpanFor(paths...)
 }
 
 // -----------------------------------------------------------------------------

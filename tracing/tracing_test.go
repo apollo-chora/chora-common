@@ -374,3 +374,35 @@ func TestMiddleware_ContextTraceparentContinuesInboundTraceWithOwnSpan(t *testin
 			parts[2], sc.SpanID())
 	}
 }
+
+// T1.11 (the kiosk): a path named in WithoutSpanFor reaches the handler with
+// no span, matched exactly; any other path keeps its span, and without the
+// option a health probe gets one too (the negative control).
+func TestMiddleware_WithoutSpanForSkipsOnlyThosePaths(t *testing.T) {
+	rec := installTestProvider(t)
+	reached := 0
+	next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { reached++ })
+	probe := func(h http.Handler, p string) {
+		h.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, p, nil))
+	}
+
+	h := tracing.Middleware(tracing.WithoutSpanFor("/healthz", "/readyz"))(next)
+	probe(h, "/healthz")
+	probe(h, "/readyz")
+	if reached != 2 {
+		t.Fatalf("the health probes reached the handler %d times, want 2", reached)
+	}
+	if n := len(rec.Ended()); n != 0 {
+		t.Fatalf("the health probes wrote %d spans, want 0", n)
+	}
+	probe(h, "/api/atoms/x")
+	probe(h, "/healthz/x")
+	if n := len(rec.Ended()); n != 2 {
+		t.Fatalf("a real route and a near-miss path wrote %d spans, want 2", n)
+	}
+
+	probe(tracing.Middleware()(next), "/healthz")
+	if n := len(rec.Ended()); n != 3 {
+		t.Fatalf("without the option a health probe wrote %d new spans, want 1", n-2)
+	}
+}

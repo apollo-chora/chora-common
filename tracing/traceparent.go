@@ -170,7 +170,14 @@ func (sr *statusRecorder) Unwrap() http.ResponseWriter {
 //	r.Use(tracing.Middleware())
 //
 // Usage with stdlib mux is identical (signature is std http.Handler).
-func Middleware() func(next http.Handler) http.Handler {
+//
+// WithoutSpanFor names paths served with no span at all (the kiosk's
+// health probes, T1.11); with no option every path is traced.
+func Middleware(opts ...MiddlewareOption) func(next http.Handler) http.Handler {
+	var cfg middlewareConfig
+	for _, o := range opts {
+		o(&cfg)
+	}
 	tracer := otel.Tracer("chora-common/tracing")
 	prop := otel.GetTextMapPropagator()
 	if prop == nil {
@@ -178,6 +185,10 @@ func Middleware() func(next http.Handler) http.Handler {
 	}
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if cfg.untraced[r.URL.Path] {
+				next.ServeHTTP(w, r)
+				return
+			}
 			// W3C traceparent header bookkeeping (legacy path — kept so the
 			// existing context helpers + outbound Inject() still work).
 			tp := EnsureTraceparent(r.Header.Get(HeaderTraceparent))
@@ -330,4 +341,27 @@ func UserRolesFromContext(ctx context.Context) string {
 		return v
 	}
 	return ""
+}
+
+// MiddlewareOption configures Middleware.
+type MiddlewareOption func(*middlewareConfig)
+
+type middlewareConfig struct{ untraced map[string]bool }
+
+// WithoutSpanFor serves the given exact paths with no span and no trace
+// context (the kiosk edition's health probes, T1.11: one span per probe every
+// few seconds buried the boot lines). Other paths, including a longer path
+// under one of them, are traced as before.
+func WithoutSpanFor(paths ...string) MiddlewareOption {
+	return func(c *middlewareConfig) {
+		if len(paths) == 0 {
+			return
+		}
+		if c.untraced == nil {
+			c.untraced = make(map[string]bool, len(paths))
+		}
+		for _, p := range paths {
+			c.untraced[p] = true
+		}
+	}
 }
